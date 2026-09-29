@@ -90,7 +90,7 @@ export const AGENT_PRESETS: AgentPreset[] = [
   },
 ];
 
-export function agentFromPreset(preset: AgentPreset, providerId: string, model: string, id = crypto.randomUUID()): Agent {
+export function agentFromPreset(preset: AgentPreset, providerId: string, model: string, id: string = crypto.randomUUID()): Agent {
   return {
     id,
     name: preset.name,

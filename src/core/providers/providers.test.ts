@@ -74,7 +74,8 @@ describe('OpenAICompatibleProvider', () => {
     const fetchMock = mockFetchJson({ choices: [{ message: { content: 'ok' } }] });
     const p = new OpenAICompatibleProvider(cfg('openai-compatible'), { kind: 'openai-compatible', defaultBaseUrl: 'https://example.test/v1' });
     await p.chat({ model: 'm1', messages: [{ role: 'user', content: 'x' }] });
-    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+    const init = (fetchMock.mock.calls as unknown as any[][])[0][1] as RequestInit;
+    const body = JSON.parse(init.body as string);
     expect(body.tools).toBeUndefined();
   });
 });

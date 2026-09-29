@@ -5,3 +5,5 @@ android
 *.log
 .env
 .vite
+*.tsbuildinfo
+vite.config.js

@@ -1,0 +1,154 @@
+name: Build Android APK
+
+on:
+  push:
+    branches: ['**']
+  workflow_dispatch:
+    inputs:
+      release:
+        description: 'إنشاء GitHub Release بالـ APK'
+        required: false
+        default: 'true'
+
+permissions:
+  contents: write
+
+concurrency:
+  group: build-apk-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    name: Build APK
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node 20
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Setup Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'temurin'
+          java-version: '17'
+
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: Install dependencies
+        run: npm ci || npm install
+
+      - name: Type check
+        run: npx tsc --noEmit
+
+      - name: Unit tests
+        run: npx vitest run
+
+      - name: Build web assets
+        run: npx vite build
+
+      - name: Add Android platform
+        run: |
+          if [ ! -d android ]; then
+            npx cap add android
+          fi
+
+      - name: Sync Capacitor
+        run: npx cap sync android
+
+      - name: Patch Android project (foreground service, theme, permissions)
+        run: node scripts/patch-android.mjs
+
+      - name: Make gradlew executable
+        run: chmod +x android/gradlew
+
+      - name: Decode keystore (if configured)
+        id: keystore
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$KEYSTORE_BASE64" ]; then
+            echo "$KEYSTORE_BASE64" | base64 -d > android/app/release.keystore
+            echo "signed=true" >> "$GITHUB_OUTPUT"
+            echo "✅ keystore decoded — سيتم بناء نسخة موقّعة"
+          else
+            echo "signed=false" >> "$GITHUB_OUTPUT"
+            echo "ℹ️ لا يوجد keystore — سيتم بناء نسخة debug"
+          fi
+
+      - name: Build signed release APK
+        if: steps.keystore.outputs.signed == 'true'
+        id: release_build
+        continue-on-error: true
+        working-directory: android
+        env:
+          MAAO_KEYSTORE_PATH: release.keystore
+          MAAO_KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          MAAO_KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          MAAO_KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          ./gradlew assembleRelease --no-daemon --stacktrace \
+            -Pandroid.injected.signing.store.file="$PWD/app/release.keystore" \
+            -Pandroid.injected.signing.store.password="$MAAO_KEYSTORE_PASSWORD" \
+            -Pandroid.injected.signing.key.alias="$MAAO_KEY_ALIAS" \
+            -Pandroid.injected.signing.key.password="$MAAO_KEY_PASSWORD"
+
+      - name: Build debug APK (fallback — always runs if release is missing)
+        if: steps.keystore.outputs.signed != 'true' || steps.release_build.outcome != 'success'
+        working-directory: android
+        run: ./gradlew assembleDebug --no-daemon --stacktrace
+
+      - name: Collect APKs
+        id: collect
+        run: |
+          mkdir -p artifacts
+          FOUND=0
+          for f in $(find android -name "*.apk" -path "*outputs*"); do
+            cp "$f" "artifacts/$(basename "$f")"
+            FOUND=1
+          done
+          if [ "$FOUND" = "0" ]; then
+            echo "❌ لم يتم إنتاج أي APK"
+            exit 1
+          fi
+          ls -lh artifacts
+          echo "apk_count=$(ls artifacts | wc -l)" >> "$GITHUB_OUTPUT"
+
+      - name: Upload APK artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: multi-ai-agent-orchestrator-apk
+          path: artifacts/*.apk
+          retention-days: 30
+          if-no-files-found: error
+
+      - name: Create GitHub Release
+        if: github.event_name == 'workflow_dispatch' || github.ref == 'refs/heads/main'
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: build-${{ github.run_number }}
+          name: منسّق الوكلاء — بناء رقم ${{ github.run_number }}
+          body: |
+            ## منسّق الوكلاء (Multi-AI Agent Orchestrator)
+
+            APK جاهز للتثبيت من هذا البناء.
+
+            - الفرع: `${{ github.ref_name }}`
+            - الكوميت: `${{ github.sha }}`
+            - موقّع بمفتاح الإصدار: `${{ steps.keystore.outputs.signed }}`
+
+            ### التثبيت
+            1. نزّل ملف `.apk` من الأسفل.
+            2. على الهاتف: الإعدادات ← الأمان ← السماح بتثبيت التطبيقات من مصادر غير معروفة.
+            3. افتح الملف وثبّت التطبيق.
+          files: artifacts/*.apk
+          fail_on_unmatched_files: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

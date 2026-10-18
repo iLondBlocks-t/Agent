@@ -22,3 +22,5 @@ mc-lab/mcpe/repo/
 eagler/shots/ai-*.png
 output/clipchk-*.png
 output/concat.txt
+games/g2048/
+games/frames2048/

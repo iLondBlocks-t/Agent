@@ -9,3 +9,11 @@ saves/
 browser/node_modules/
 output/*.webm
 output/player.html
+eagler/client/
+eagler/client188/
+eagler/frames/
+eagler/frames2/
+eagler/concat*.txt
+eagler/shots/p*.png
+eagler/shots/0*.png
+eagler/shots/1*.png

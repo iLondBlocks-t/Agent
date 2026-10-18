@@ -1,0 +1,8 @@
+# toolchain (re-creatable, ~300 MB) and third-party sources
+.venv/
+ffmpeg-bin/
+src/
+# generated video (kept in the workspace, out of git; see README §5)
+output/*.mp4
+# game autosaves created at runtime
+saves/

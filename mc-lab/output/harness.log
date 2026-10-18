@@ -1,0 +1,39 @@
+{"event": "harness_ready", "sdl2_library": "/home/user/Agent/mc-lab/venv/lib/python3.11/site-packages/pygame_ce.libs/libSDL2-2-570b3b1a.0.so.0.3000.12", "video_driver": "dummy", "audio_driver": true, "resolution": [960, 540], "target_fps": 32, "ffmpeg": "/home/user/Agent/mc-lab/ffmpeg-bin/ffmpeg -y -hide_banner -loglevel error -stats -f rawvideo -pix_fmt rgb24 -s 960x540 -r 32 -i - -c:v libx264 -preset ultrafast -crf 23 -pix_fmt yuv420p -movflags +faststart output/gameplay.mp4", "scancode_selftest": "ALL PASS", "control_socket": "/tmp/mc-control.sock", "game_dir": "/home/user/Agent/mc-lab/src/TheBigEye_minicraft-py"}
+{"event": "game_initialized", "menu": "TitleMenu"}
+/home/user/Agent/mc-lab/harness.py:120: DeprecationWarning: pygame.image.tostring deprecated since 2.3.0
+  raw = pygame.image.tostring(surf, "RGB")
+> render time: 8 ms
+> render time: 8 ms
+> render time: 7 ms
+> render time: 8 ms
+> render time: 9 ms
+> render time: 8 ms
+> render time: 7 ms
+> render time: 7 ms
+> render time: 7 ms
+> render time: 7 ms
+> render time: 7 ms
+> render time: 7 ms
+> render time: 7 ms
+> render time: 6 ms
+> render time: 6 ms
+> render time: 10 ms
+> render time: 7 ms
+> render time: 7 ms
+> render time: 7 ms
+> render time: 7 ms
+> render time: 8 ms
+> render time: 8 ms
+> render time: 9 ms
+> render time: 7 ms
+> render time: 7 ms
+> render time: 7 ms
+> render time: 7 ms
+> render time: 8 ms
+> render time: 7 ms
+> render time: 8 ms
+> render time: 7 ms
+> render time: 7 ms
+> render time: 8 ms
+> render time: 7 ms
+{"event": "game_exited", "recorded_frames": 1940, "capture_fps": 31.1, "elapsed_s": 62.4, "mouse_pos": null, "menu": null, "debug_overlay": false, "world_loaded": true, "world_seed": "ARENA-2", "world_chunks": 56, "player_pos": [567.86, -2.91], "player_health": 10, "ticks": 4180, "game_time": 0, "video": "output/gameplay.mp4"}

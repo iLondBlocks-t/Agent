@@ -1,0 +1,190 @@
+[2026-10-18T19:44:33.715Z] BOOT page loaded
+[2026-10-18T19:44:36.720Z] BOOT canvas after 3 s
+[2026-10-18T19:44:36.727Z] BOOT probe injected; audio state: "idle"
+[2026-10-18T19:44:51.732Z] CAST ON
+[2026-10-18T19:44:51.774Z] SEE step 0 class: sound-gate buttons: 0 scene: mean=251 var=35 centre: var=12
+[2026-10-18T19:44:51.832Z] SHOT ai-00-sound-gate.png
+[2026-10-18T19:44:51.832Z] DECIDE Eaglercraft sound gate ('press any key to enable sound') -> press Enter + click
+[2026-10-18T19:44:57.228Z] SEE step 1 class: sound-gate buttons: 0 scene: mean=255 var=0 centre: var=1668
+[2026-10-18T19:44:57.373Z] SHOT ai-01-sound-gate.png
+[2026-10-18T19:44:57.373Z] DECIDE Eaglercraft sound gate ('press any key to enable sound') -> press Enter + click
+[2026-10-18T19:45:00.883Z] SEE step 2 class: edit-profile buttons: 3 scene: mean=38 var=2307 centre: var=1668
+[2026-10-18T19:45:00.994Z] SHOT ai-02-edit-profile.png
+[2026-10-18T19:45:00.994Z] DECIDE set username=LondAgent then Done
+[2026-10-18T19:45:06.272Z] SHOT q-name-field.png
+[2026-10-18T19:45:06.272Z] ACT click Done 638 654 detected
+[2026-10-18T19:45:10.313Z] SEE step 3 class: title-menu buttons: 4 scene: mean=92 var=964 centre: var=2865
+[2026-10-18T19:45:10.673Z] SHOT ai-03-title-menu.png
+[2026-10-18T19:45:10.673Z] DECIDE open Singleplayer; ACT click 638 354 detected
+[2026-10-18T19:45:14.402Z] SEE step 4 class: world-select buttons: 2 scene: mean=15 var=210 centre: var=8
+[2026-10-18T19:45:14.496Z] SHOT ai-04-world-select.png
+[2026-10-18T19:45:14.497Z] DECIDE empty list -> Create New World; ACT click 874 594
+[2026-10-18T19:45:17.549Z] SEE step 5 class: title-menu buttons: 3 scene: mean=56 var=2470 centre: var=2565
+[2026-10-18T19:45:17.631Z] SHOT ai-05-title-menu.png
+[2026-10-18T19:45:17.631Z] DECIDE open Singleplayer; ACT click 638 330 detected
+[2026-10-18T19:45:21.356Z] SEE step 6 class: title-menu buttons: 4 scene: mean=38 var=1634 centre: var=3884
+[2026-10-18T19:45:21.482Z] SHOT ai-06-title-menu.png
+[2026-10-18T19:45:21.482Z] DECIDE open Singleplayer; ACT click 638 376 detected
+[2026-10-18T19:45:25.166Z] SEE step 7 class: create-world buttons: 3 scene: mean=42 var=2203 centre: var=5047
+[2026-10-18T19:45:25.253Z] SHOT ai-07-create-world.png
+[2026-10-18T19:45:25.253Z] DECIDE confirm world creation; ACT click 398 666 detected
+[2026-10-18T19:45:30.769Z] SEE step 8 class: loading buttons: 0 scene: mean=17 var=4 centre: var=0
+[2026-10-18T19:45:31.386Z] SHOT ai-08-loading.png
+[2026-10-18T19:45:31.386Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T19:45:37.231Z] SEE step 9 class: loading buttons: 0 scene: mean=32 var=118 centre: var=63
+[2026-10-18T19:45:40.105Z] SHOT ai-09-loading.png
+[2026-10-18T19:45:40.105Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T19:45:59.882Z] SEE step 10 class: loading buttons: 0 scene: mean=73 var=312 centre: var=1021
+[2026-10-18T19:46:04.209Z] SHOT ai-10-loading.png
+[2026-10-18T19:46:04.209Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T19:46:23.622Z] SEE step 11 class: loading buttons: 0 scene: mean=73 var=312 centre: var=1021
+[2026-10-18T19:46:33.032Z] SHOT ai-11-loading.png
+[2026-10-18T19:46:33.032Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T19:46:51.870Z] SEE step 12 class: loading buttons: 0 scene: mean=73 var=312 centre: var=1021
+[2026-10-18T19:46:59.809Z] SHOT ai-12-loading.png
+[2026-10-18T19:46:59.809Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T19:47:21.532Z] SEE step 13 class: loading buttons: 0 scene: mean=73 var=312 centre: var=1021
+[2026-10-18T19:47:25.465Z] SHOT ai-13-loading.png
+[2026-10-18T19:47:25.465Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T19:47:44.097Z] SEE step 14 class: loading buttons: 0 scene: mean=73 var=312 centre: var=1021
+[2026-10-18T19:47:54.306Z] SHOT ai-14-loading.png
+[2026-10-18T19:47:54.306Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T19:48:18.251Z] SEE step 15 class: loading buttons: 0 scene: mean=73 var=312 centre: var=1021
+[2026-10-18T19:48:43.672Z] SHOT ai-15-loading.png
+[2026-10-18T19:48:43.672Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T19:49:06.135Z] SEE step 16 class: loading buttons: 0 scene: mean=73 var=312 centre: var=1021
+[2026-10-18T19:49:15.312Z] SHOT ai-16-loading.png
+[2026-10-18T19:49:15.313Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T19:49:38.342Z] SEE step 17 class: loading buttons: 0 scene: mean=73 var=312 centre: var=1021
+[2026-10-18T19:49:47.260Z] SHOT ai-17-loading.png
+[2026-10-18T19:49:47.260Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T19:50:12.534Z] SEE step 18 class: loading buttons: 0 scene: mean=73 var=312 centre: var=1021
+[2026-10-18T19:50:22.507Z] SHOT ai-18-loading.png
+[2026-10-18T19:50:22.507Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T19:50:49.461Z] SEE step 19 class: loading buttons: 0 scene: mean=73 var=312 centre: var=1021
+[2026-10-18T19:50:59.564Z] SHOT ai-19-loading.png
+[2026-10-18T19:50:59.564Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T19:51:20.799Z] SEE step 20 class: loading buttons: 0 scene: mean=73 var=312 centre: var=1021
+[2026-10-18T19:51:29.667Z] SHOT ai-20-loading.png
+[2026-10-18T19:51:29.667Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T19:51:56.130Z] SEE step 21 class: loading buttons: 0 scene: mean=73 var=312 centre: var=1021
+[2026-10-18T19:52:06.499Z] SHOT ai-21-loading.png
+[2026-10-18T19:52:06.499Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T19:52:31.188Z] SEE step 22 class: loading buttons: 0 scene: mean=73 var=312 centre: var=1021
+[2026-10-18T19:52:42.882Z] SHOT ai-22-loading.png
+[2026-10-18T19:52:42.882Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T19:52:59.996Z] SEE step 23 class: loading buttons: 0 scene: mean=73 var=312 centre: var=1021
+[2026-10-18T19:53:10.931Z] SHOT ai-23-loading.png
+[2026-10-18T19:53:10.931Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T19:53:35.960Z] SEE step 24 class: loading buttons: 0 scene: mean=73 var=312 centre: var=1021
+[2026-10-18T19:53:47.735Z] SHOT ai-24-loading.png
+[2026-10-18T19:53:47.735Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T19:54:12.775Z] SEE step 25 class: loading buttons: 0 scene: mean=73 var=312 centre: var=1021
+[2026-10-18T19:54:24.622Z] SHOT ai-25-loading.png
+[2026-10-18T19:54:24.622Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T19:54:51.509Z] SEE step 26 class: loading buttons: 0 scene: mean=73 var=312 centre: var=1021
+[2026-10-18T19:54:57.982Z] SHOT ai-26-loading.png
+[2026-10-18T19:54:57.982Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T19:55:16.424Z] SEE step 27 class: loading buttons: 0 scene: mean=73 var=312 centre: var=1021
+[2026-10-18T19:55:27.515Z] SHOT ai-27-loading.png
+[2026-10-18T19:55:27.515Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T19:55:53.451Z] SEE step 28 class: loading buttons: 0 scene: mean=73 var=312 centre: var=1021
+[2026-10-18T19:56:04.476Z] SHOT ai-28-loading.png
+[2026-10-18T19:56:04.476Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T19:56:29.857Z] SEE step 29 class: loading buttons: 0 scene: mean=73 var=312 centre: var=1021
+[2026-10-18T19:56:40.698Z] SHOT ai-29-loading.png
+[2026-10-18T19:56:40.698Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T19:57:07.953Z] SEE step 30 class: loading buttons: 0 scene: mean=73 var=312 centre: var=1021
+[2026-10-18T19:57:19.389Z] SHOT ai-30-loading.png
+[2026-10-18T19:57:19.389Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T19:57:44.089Z] SEE step 31 class: loading buttons: 0 scene: mean=71 var=294 centre: var=996
+[2026-10-18T19:57:53.591Z] SHOT ai-31-loading.png
+[2026-10-18T19:57:53.591Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T19:58:13.364Z] SEE step 32 class: loading buttons: 0 scene: mean=48 var=143 centre: var=1263
+[2026-10-18T19:58:21.310Z] SHOT ai-32-loading.png
+[2026-10-18T19:58:21.310Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T19:58:44.149Z] SEE step 33 class: loading buttons: 0 scene: mean=38 var=99 centre: var=1330
+[2026-10-18T19:58:54.802Z] SHOT ai-33-loading.png
+[2026-10-18T19:58:54.802Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T19:59:18.369Z] SEE step 34 class: loading buttons: 0 scene: mean=38 var=99 centre: var=1330
+[2026-10-18T19:59:29.248Z] SHOT ai-34-loading.png
+[2026-10-18T19:59:29.248Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T19:59:46.762Z] SEE step 35 class: loading buttons: 0 scene: mean=38 var=99 centre: var=1330
+[2026-10-18T19:59:48.017Z] SHOTFAIL ai-35-loading.png Protocol error (Page.captureScreenshot): Target closed
+[2026-10-18T19:59:48.017Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T19:59:52.022Z] SEE step 36 class: loading buttons: 0 scene: null centre: null
+[2026-10-18T19:59:52.022Z] SHOTFAIL ai-36-loading.png Protocol error (Page.captureScreenshot): Session closed. Most likely the page has been closed.
+[2026-10-18T19:59:52.023Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T19:59:56.027Z] SEE step 37 class: loading buttons: 0 scene: null centre: null
+[2026-10-18T19:59:56.027Z] SHOTFAIL ai-37-loading.png Protocol error (Page.captureScreenshot): Session closed. Most likely the page has been closed.
+[2026-10-18T19:59:56.027Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:00:00.029Z] SEE step 38 class: loading buttons: 0 scene: null centre: null
+[2026-10-18T20:00:00.030Z] SHOTFAIL ai-38-loading.png Protocol error (Page.captureScreenshot): Session closed. Most likely the page has been closed.
+[2026-10-18T20:00:00.030Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:00:04.034Z] SEE step 39 class: loading buttons: 0 scene: null centre: null
+[2026-10-18T20:00:04.034Z] SHOTFAIL ai-39-loading.png Protocol error (Page.captureScreenshot): Session closed. Most likely the page has been closed.
+[2026-10-18T20:00:04.034Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:00:08.039Z] SEE step 40 class: loading buttons: 0 scene: null centre: null
+[2026-10-18T20:00:08.039Z] SHOTFAIL ai-40-loading.png Protocol error (Page.captureScreenshot): Session closed. Most likely the page has been closed.
+[2026-10-18T20:00:08.039Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:00:12.043Z] SEE step 41 class: loading buttons: 0 scene: null centre: null
+[2026-10-18T20:00:12.043Z] SHOTFAIL ai-41-loading.png Protocol error (Page.captureScreenshot): Session closed. Most likely the page has been closed.
+[2026-10-18T20:00:12.044Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:00:16.048Z] SEE step 42 class: loading buttons: 0 scene: null centre: null
+[2026-10-18T20:00:16.048Z] SHOTFAIL ai-42-loading.png Protocol error (Page.captureScreenshot): Session closed. Most likely the page has been closed.
+[2026-10-18T20:00:16.048Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:00:20.051Z] SEE step 43 class: loading buttons: 0 scene: null centre: null
+[2026-10-18T20:00:20.051Z] SHOTFAIL ai-43-loading.png Protocol error (Page.captureScreenshot): Session closed. Most likely the page has been closed.
+[2026-10-18T20:00:20.051Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:00:24.055Z] SEE step 44 class: loading buttons: 0 scene: null centre: null
+[2026-10-18T20:00:24.056Z] SHOTFAIL ai-44-loading.png Protocol error (Page.captureScreenshot): Session closed. Most likely the page has been closed.
+[2026-10-18T20:00:24.056Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:00:28.060Z] SEE step 45 class: loading buttons: 0 scene: null centre: null
+[2026-10-18T20:00:28.060Z] SHOTFAIL ai-45-loading.png Protocol error (Page.captureScreenshot): Session closed. Most likely the page has been closed.
+[2026-10-18T20:00:28.060Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:00:32.064Z] SEE step 46 class: loading buttons: 0 scene: null centre: null
+[2026-10-18T20:00:32.065Z] SHOTFAIL ai-46-loading.png Protocol error (Page.captureScreenshot): Session closed. Most likely the page has been closed.
+[2026-10-18T20:00:32.065Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:00:36.069Z] SEE step 47 class: loading buttons: 0 scene: null centre: null
+[2026-10-18T20:00:36.070Z] SHOTFAIL ai-47-loading.png Protocol error (Page.captureScreenshot): Session closed. Most likely the page has been closed.
+[2026-10-18T20:00:36.070Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:00:40.074Z] SEE step 48 class: loading buttons: 0 scene: null centre: null
+[2026-10-18T20:00:40.074Z] SHOTFAIL ai-48-loading.png Protocol error (Page.captureScreenshot): Session closed. Most likely the page has been closed.
+[2026-10-18T20:00:40.074Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:00:44.079Z] SEE step 49 class: loading buttons: 0 scene: null centre: null
+[2026-10-18T20:00:44.079Z] SHOTFAIL ai-49-loading.png Protocol error (Page.captureScreenshot): Session closed. Most likely the page has been closed.
+[2026-10-18T20:00:44.079Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:00:48.084Z] SEE step 50 class: loading buttons: 0 scene: null centre: null
+[2026-10-18T20:00:48.084Z] SHOTFAIL ai-50-loading.png Protocol error (Page.captureScreenshot): Session closed. Most likely the page has been closed.
+[2026-10-18T20:00:48.084Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:00:52.087Z] SEE step 51 class: loading buttons: 0 scene: null centre: null
+[2026-10-18T20:00:52.088Z] SHOTFAIL ai-51-loading.png Protocol error (Page.captureScreenshot): Session closed. Most likely the page has been closed.
+[2026-10-18T20:00:52.088Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:00:56.092Z] SEE step 52 class: loading buttons: 0 scene: null centre: null
+[2026-10-18T20:00:56.092Z] SHOTFAIL ai-52-loading.png Protocol error (Page.captureScreenshot): Session closed. Most likely the page has been closed.
+[2026-10-18T20:00:56.092Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:01:00.097Z] SEE step 53 class: loading buttons: 0 scene: null centre: null
+[2026-10-18T20:01:00.097Z] SHOTFAIL ai-53-loading.png Protocol error (Page.captureScreenshot): Session closed. Most likely the page has been closed.
+[2026-10-18T20:01:00.097Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:01:04.102Z] SEE step 54 class: loading buttons: 0 scene: null centre: null
+[2026-10-18T20:01:04.102Z] SHOTFAIL ai-54-loading.png Protocol error (Page.captureScreenshot): Session closed. Most likely the page has been closed.
+[2026-10-18T20:01:04.102Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:01:08.106Z] SEE step 55 class: loading buttons: 0 scene: null centre: null
+[2026-10-18T20:01:08.107Z] SHOTFAIL ai-55-loading.png Protocol error (Page.captureScreenshot): Session closed. Most likely the page has been closed.
+[2026-10-18T20:01:08.107Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:01:12.111Z] SEE step 56 class: loading buttons: 0 scene: null centre: null
+[2026-10-18T20:01:12.111Z] SHOTFAIL ai-56-loading.png Protocol error (Page.captureScreenshot): Session closed. Most likely the page has been closed.
+[2026-10-18T20:01:12.111Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:01:16.116Z] SEE step 57 class: loading buttons: 0 scene: null centre: null
+[2026-10-18T20:01:16.116Z] SHOTFAIL ai-57-loading.png Protocol error (Page.captureScreenshot): Session closed. Most likely the page has been closed.
+[2026-10-18T20:01:16.116Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:01:20.119Z] SEE step 58 class: loading buttons: 0 scene: null centre: null
+[2026-10-18T20:01:20.119Z] SHOTFAIL ai-58-loading.png Protocol error (Page.captureScreenshot): Session closed. Most likely the page has been closed.
+[2026-10-18T20:01:20.119Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:01:24.123Z] SEE step 59 class: loading buttons: 0 scene: null centre: null
+[2026-10-18T20:01:24.123Z] SHOTFAIL ai-59-loading.png Protocol error (Page.captureScreenshot): Session closed. Most likely the page has been closed.
+[2026-10-18T20:01:24.123Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:01:28.128Z] FATAL never reached in-game; aborting with evidence
+[2026-10-18T20:01:28.128Z] SHOTFAIL ai-FAIL-last.png Protocol error (Page.captureScreenshot): Session closed. Most likely the page has been closed.
+[2026-10-18T20:01:28.129Z] CAST OFF frames: 1617
+FATAL Attempted to use detached Frame '01311CA5CC768FD3A3B5DB6AAB4A38AC'.

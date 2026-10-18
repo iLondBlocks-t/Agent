@@ -1,0 +1,65 @@
+[2026-10-18T19:40:19.120Z] BOOT page loaded
+[2026-10-18T19:40:22.126Z] BOOT canvas after 3 s
+[2026-10-18T19:40:22.134Z] BOOT probe injected; audio state: "idle"
+[2026-10-18T19:40:37.148Z] CAST ON
+[2026-10-18T19:40:37.202Z] SEE step 0 class: sound-gate buttons: 0 scene: mean=251 var=35 centre: var=12
+[2026-10-18T19:40:37.267Z] SHOT ai-00-sound-gate.png
+[2026-10-18T19:40:37.267Z] DECIDE Eaglercraft sound gate ('press any key to enable sound') -> press Enter + click
+[2026-10-18T19:40:43.039Z] SEE step 1 class: loading buttons: 0 scene: mean=23 var=693 centre: var=1668
+[2026-10-18T19:40:43.192Z] SHOT ai-01-loading.png
+[2026-10-18T19:40:43.193Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T19:40:47.784Z] SEE step 2 class: edit-profile buttons: 3 scene: mean=35 var=1939 centre: var=1668
+[2026-10-18T19:40:47.889Z] SHOT ai-02-edit-profile.png
+[2026-10-18T19:40:47.890Z] DECIDE set username=LondAgent then Done
+[2026-10-18T19:40:50.887Z] SHOT q-name-field.png
+[2026-10-18T19:40:50.887Z] ACT click Done 638 654 detected
+[2026-10-18T19:40:54.876Z] SEE step 3 class: title-menu buttons: 5 scene: mean=92 var=953 centre: var=2865
+[2026-10-18T19:40:55.297Z] SHOT ai-03-title-menu.png
+[2026-10-18T19:40:55.297Z] DECIDE open Singleplayer; ACT click 638 354 detected
+[2026-10-18T19:40:59.045Z] SEE step 4 class: world-select buttons: 2 scene: mean=15 var=210 centre: var=8
+[2026-10-18T19:40:59.137Z] SHOT ai-04-world-select.png
+[2026-10-18T19:40:59.137Z] DECIDE empty list -> Create New World; ACT click 874 594
+[2026-10-18T19:41:02.161Z] SEE step 5 class: title-menu buttons: 3 scene: mean=56 var=2470 centre: var=2565
+[2026-10-18T19:41:02.263Z] SHOT ai-05-title-menu.png
+[2026-10-18T19:41:02.263Z] DECIDE open Singleplayer; ACT click 638 330 detected
+[2026-10-18T19:41:06.201Z] SEE step 6 class: title-menu buttons: 4 scene: mean=38 var=1634 centre: var=3884
+[2026-10-18T19:41:06.431Z] SHOT ai-06-title-menu.png
+[2026-10-18T19:41:06.431Z] DECIDE open Singleplayer; ACT click 638 376 detected
+[2026-10-18T19:41:09.976Z] SEE step 7 class: create-world buttons: 3 scene: mean=42 var=2204 centre: var=5047
+[2026-10-18T19:41:10.064Z] SHOT ai-07-create-world.png
+[2026-10-18T19:41:10.065Z] DECIDE confirm world creation; ACT click 398 666 detected
+[2026-10-18T19:41:14.737Z] SEE step 8 class: loading buttons: 0 scene: mean=29 var=568 centre: var=29
+[2026-10-18T19:41:15.318Z] SHOT ai-08-loading.png
+[2026-10-18T19:41:15.318Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T19:41:20.918Z] SEE step 9 class: loading buttons: 0 scene: mean=26 var=381 centre: var=29
+[2026-10-18T19:41:21.465Z] SHOT ai-09-loading.png
+[2026-10-18T19:41:21.465Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T19:41:29.175Z] SEE step 10 class: in-game buttons: 0 scene: mean=195 var=1138 centre: var=1249
+[2026-10-18T19:41:30.730Z] SHOT ai-10-in-game.png
+[2026-10-18T19:41:30.730Z] DECIDE in-world detected -> start play sequence
+[2026-10-18T19:41:34.384Z] LOCK attempt 0 pointerLockElement: true
+[2026-10-18T19:41:39.474Z] CALIB initial skyScore 36.0
+[2026-10-18T19:41:53.864Z] CALIB after dy+200 skyScore 36.1
+[2026-10-18T19:42:07.389Z] CALIB inverted, skyScore now 36.2
+[2026-10-18T19:42:25.285Z] CALIB pitch step 0 skyScore 36.2
+[2026-10-18T19:42:42.197Z] CALIB pitch step 1 skyScore 36.2
+[2026-10-18T19:42:58.713Z] CALIB pitch step 2 skyScore 36.3
+[2026-10-18T19:43:17.947Z] CALIB pitch step 3 skyScore 36.3
+[2026-10-18T19:43:17.947Z] ACT play: look down calibrated, dir= -1
+[2026-10-18T19:43:21.480Z] SHOT s4-lookdown.png
+[2026-10-18T19:43:21.480Z] ACT play: approach W 1.2s
+[2026-10-18T19:43:23.830Z] ACT play: mine block #1 4.0s
+[2026-10-18T19:43:28.823Z] ACT play: step forward W 0.8s
+[2026-10-18T19:43:30.403Z] ACT play: mine block #2 4.0s
+[2026-10-18T19:43:37.074Z] SHOT s3-after-mining.png
+[2026-10-18T19:43:37.074Z] ACT play: select hotbar 1
+[2026-10-18T19:43:37.536Z] ACT play: place block x3
+[2026-10-18T19:43:39.740Z] ACT play: jump onto build
+[2026-10-18T19:43:41.444Z] ACT play: open inventory E
+[2026-10-18T19:43:44.541Z] SHOT s2-inventory.png
+[2026-10-18T19:43:45.351Z] ACT play: look around pan
+[2026-10-18T19:43:55.317Z] ACT play: jump x2
+[2026-10-18T19:43:58.524Z] SHOT ai-play-end.png
+[2026-10-18T19:44:01.782Z] SHOT ai-pause.png
+[2026-10-18T19:44:01.825Z] CAST OFF frames: 1126
+[2026-10-18T19:44:02.956Z] AUDIO state: {"state":"stopped","mime":"audio/webm;codecs=opus","chunks":34} bytes: 196037

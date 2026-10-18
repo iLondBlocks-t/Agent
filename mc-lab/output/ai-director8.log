@@ -1,0 +1,129 @@
+[2026-10-18T20:19:24.485Z] BOOT page loaded
+[2026-10-18T20:20:54.620Z] BOOT probe injected; audio state: "idle"
+[2026-10-18T20:21:09.635Z] CAST ON
+[2026-10-18T20:21:09.638Z] SEE step 0 class: loading (eff: loading ) buttons: 0 scene: null centre: null
+[2026-10-18T20:21:09.706Z] SHOT ai-00-loading.png
+[2026-10-18T20:21:09.707Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:21:13.714Z] SEE step 1 class: loading (eff: loading ) buttons: 0 scene: null centre: null
+[2026-10-18T20:21:13.759Z] SHOT ai-01-loading.png
+[2026-10-18T20:21:13.759Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:21:17.762Z] SEE step 2 class: loading (eff: loading ) buttons: 0 scene: null centre: null
+[2026-10-18T20:21:17.802Z] SHOT ai-02-loading.png
+[2026-10-18T20:21:17.802Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:21:21.806Z] SEE step 3 class: loading (eff: loading ) buttons: 0 scene: null centre: null
+[2026-10-18T20:21:21.852Z] SHOT ai-03-loading.png
+[2026-10-18T20:21:21.852Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:21:25.856Z] SEE step 4 class: loading (eff: loading ) buttons: 0 scene: null centre: null
+[2026-10-18T20:21:25.902Z] SHOT ai-04-loading.png
+[2026-10-18T20:21:25.902Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:21:29.905Z] SEE step 5 class: loading (eff: loading ) buttons: 0 scene: null centre: null
+[2026-10-18T20:21:29.951Z] SHOT ai-05-loading.png
+[2026-10-18T20:21:29.951Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:21:33.955Z] SEE step 6 class: loading (eff: loading ) buttons: 0 scene: null centre: null
+[2026-10-18T20:21:34.000Z] SHOT ai-06-loading.png
+[2026-10-18T20:21:34.000Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:21:38.004Z] SEE step 7 class: loading (eff: loading ) buttons: 0 scene: null centre: null
+[2026-10-18T20:21:38.051Z] SHOT ai-07-loading.png
+[2026-10-18T20:21:38.051Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:21:42.054Z] SEE step 8 class: loading (eff: loading ) buttons: 0 scene: null centre: null
+[2026-10-18T20:21:42.106Z] SHOT ai-08-loading.png
+[2026-10-18T20:21:42.106Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:21:46.112Z] SEE step 9 class: loading (eff: loading ) buttons: 0 scene: null centre: null
+[2026-10-18T20:21:46.160Z] SHOT ai-09-loading.png
+[2026-10-18T20:21:46.161Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:21:50.165Z] SEE step 10 class: loading (eff: loading ) buttons: 0 scene: null centre: null
+[2026-10-18T20:21:50.205Z] SHOT ai-10-loading.png
+[2026-10-18T20:21:50.205Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:21:54.207Z] SEE step 11 class: loading (eff: loading ) buttons: 0 scene: null centre: null
+[2026-10-18T20:21:54.249Z] SHOT ai-11-loading.png
+[2026-10-18T20:21:54.249Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:21:58.252Z] SEE step 12 class: loading (eff: loading ) buttons: 0 scene: null centre: null
+[2026-10-18T20:21:58.299Z] SHOT ai-12-loading.png
+[2026-10-18T20:21:58.299Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:22:02.303Z] SEE step 13 class: loading (eff: loading ) buttons: 0 scene: null centre: null
+[2026-10-18T20:22:02.348Z] SHOT ai-13-loading.png
+[2026-10-18T20:22:02.348Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:22:06.352Z] SEE step 14 class: loading (eff: loading ) buttons: 0 scene: null centre: null
+[2026-10-18T20:22:06.400Z] SHOT ai-14-loading.png
+[2026-10-18T20:22:06.400Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:22:10.403Z] SEE step 15 class: loading (eff: loading ) buttons: 0 scene: null centre: null
+[2026-10-18T20:22:10.449Z] SHOT ai-15-loading.png
+[2026-10-18T20:22:10.449Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:22:14.451Z] SEE step 16 class: loading (eff: loading ) buttons: 0 scene: null centre: null
+[2026-10-18T20:22:14.500Z] SHOT ai-16-loading.png
+[2026-10-18T20:22:14.500Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:22:18.503Z] SEE step 17 class: loading (eff: loading ) buttons: 0 scene: null centre: null
+[2026-10-18T20:22:18.559Z] SHOT ai-17-loading.png
+[2026-10-18T20:22:18.559Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:22:22.570Z] SEE step 18 class: loading (eff: loading ) buttons: 0 scene: null centre: null
+[2026-10-18T20:22:22.623Z] SHOT ai-18-loading.png
+[2026-10-18T20:22:22.623Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:22:26.627Z] SEE step 19 class: loading (eff: loading ) buttons: 0 scene: null centre: null
+[2026-10-18T20:22:26.672Z] SHOT ai-19-loading.png
+[2026-10-18T20:22:26.672Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:22:30.676Z] SEE step 20 class: loading (eff: loading ) buttons: 0 scene: null centre: null
+[2026-10-18T20:22:30.716Z] SHOT ai-20-loading.png
+[2026-10-18T20:22:30.716Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:22:34.721Z] SEE step 21 class: loading (eff: loading ) buttons: 0 scene: null centre: null
+[2026-10-18T20:22:34.767Z] SHOT ai-21-loading.png
+[2026-10-18T20:22:34.767Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:22:38.771Z] SEE step 22 class: loading (eff: loading ) buttons: 0 scene: null centre: null
+[2026-10-18T20:22:38.815Z] SHOT ai-22-loading.png
+[2026-10-18T20:22:38.815Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:22:42.819Z] SEE step 23 class: loading (eff: loading ) buttons: 0 scene: null centre: null
+[2026-10-18T20:22:42.865Z] SHOT ai-23-loading.png
+[2026-10-18T20:22:42.865Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:22:46.869Z] SEE step 24 class: loading (eff: loading ) buttons: 0 scene: null centre: null
+[2026-10-18T20:22:46.922Z] SHOT ai-24-loading.png
+[2026-10-18T20:22:46.922Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:22:50.926Z] SEE step 25 class: loading (eff: loading ) buttons: 0 scene: null centre: null
+[2026-10-18T20:22:50.975Z] SHOT ai-25-loading.png
+[2026-10-18T20:22:50.975Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:22:54.979Z] SEE step 26 class: loading (eff: loading ) buttons: 0 scene: null centre: null
+[2026-10-18T20:22:55.030Z] SHOT ai-26-loading.png
+[2026-10-18T20:22:55.030Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:22:59.034Z] SEE step 27 class: loading (eff: loading ) buttons: 0 scene: null centre: null
+[2026-10-18T20:22:59.080Z] SHOT ai-27-loading.png
+[2026-10-18T20:22:59.080Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:23:03.083Z] SEE step 28 class: loading (eff: loading ) buttons: 0 scene: null centre: null
+[2026-10-18T20:23:03.130Z] SHOT ai-28-loading.png
+[2026-10-18T20:23:03.130Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:23:07.134Z] SEE step 29 class: loading (eff: loading ) buttons: 0 scene: null centre: null
+[2026-10-18T20:23:07.181Z] SHOT ai-29-loading.png
+[2026-10-18T20:23:07.181Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:23:11.185Z] SEE step 30 class: loading (eff: loading ) buttons: 0 scene: null centre: null
+[2026-10-18T20:23:11.229Z] SHOT ai-30-loading.png
+[2026-10-18T20:23:11.229Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:23:15.233Z] SEE step 31 class: loading (eff: loading ) buttons: 0 scene: null centre: null
+[2026-10-18T20:23:15.279Z] SHOT ai-31-loading.png
+[2026-10-18T20:23:15.279Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:23:19.281Z] SEE step 32 class: loading (eff: loading ) buttons: 0 scene: null centre: null
+[2026-10-18T20:23:19.329Z] SHOT ai-32-loading.png
+[2026-10-18T20:23:19.329Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:23:23.333Z] SEE step 33 class: loading (eff: loading ) buttons: 0 scene: null centre: null
+[2026-10-18T20:23:23.379Z] SHOT ai-33-loading.png
+[2026-10-18T20:23:23.379Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:23:27.383Z] SEE step 34 class: loading (eff: loading ) buttons: 0 scene: null centre: null
+[2026-10-18T20:23:27.440Z] SHOT ai-34-loading.png
+[2026-10-18T20:23:27.440Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:23:31.444Z] SEE step 35 class: loading (eff: loading ) buttons: 0 scene: null centre: null
+[2026-10-18T20:23:31.480Z] SHOT ai-35-loading.png
+[2026-10-18T20:23:31.481Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:23:35.484Z] SEE step 36 class: loading (eff: loading ) buttons: 0 scene: null centre: null
+[2026-10-18T20:23:35.530Z] SHOT ai-36-loading.png
+[2026-10-18T20:23:35.530Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:23:39.534Z] SEE step 37 class: loading (eff: loading ) buttons: 0 scene: null centre: null
+[2026-10-18T20:23:39.580Z] SHOT ai-37-loading.png
+[2026-10-18T20:23:39.580Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:23:43.582Z] SEE step 38 class: loading (eff: loading ) buttons: 0 scene: null centre: null
+[2026-10-18T20:23:43.629Z] SHOT ai-38-loading.png
+[2026-10-18T20:23:43.630Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:23:47.633Z] SEE step 39 class: loading (eff: loading ) buttons: 0 scene: null centre: null
+[2026-10-18T20:23:47.679Z] SHOT ai-39-loading.png
+[2026-10-18T20:23:47.679Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:23:51.679Z] FATAL never reached in-game; aborting with evidence
+[2026-10-18T20:23:51.711Z] SHOT ai-FAIL-last.png
+[2026-10-18T20:23:51.712Z] CAST OFF frames: 42
+[2026-10-18T20:23:52.517Z] AUDIO state: {"state":"idle","mime":""} bytes: 0
+[2026-10-18T20:26:04.557Z] WATCHDOG 400s: graceful stop, dump what we have
+WATCHDOG-EXIT

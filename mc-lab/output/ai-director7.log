@@ -1,0 +1,132 @@
+[2026-10-18T20:02:28.262Z] BOOT page loaded
+[2026-10-18T20:02:31.267Z] BOOT canvas after 3 s
+[2026-10-18T20:02:31.276Z] BOOT probe injected; audio state: "idle"
+[2026-10-18T20:02:46.288Z] CAST ON
+[2026-10-18T20:02:46.339Z] SEE step 0 class: sound-gate buttons: 0 scene: mean=251 var=35 centre: var=12
+[2026-10-18T20:02:46.399Z] SHOT ai-00-sound-gate.png
+[2026-10-18T20:02:46.399Z] DECIDE Eaglercraft sound gate ('press any key to enable sound') -> press Enter + click
+[2026-10-18T20:02:52.087Z] SEE step 1 class: sound-gate buttons: 0 scene: mean=255 var=0 centre: var=232
+[2026-10-18T20:02:52.288Z] SHOT ai-01-sound-gate.png
+[2026-10-18T20:02:52.288Z] DECIDE Eaglercraft sound gate ('press any key to enable sound') -> press Enter + click
+[2026-10-18T20:02:55.826Z] SEE step 2 class: edit-profile buttons: 3 scene: mean=37 var=2247 centre: var=1668
+[2026-10-18T20:02:55.948Z] SHOT ai-02-edit-profile.png
+[2026-10-18T20:02:55.949Z] DECIDE set username=LondAgent then Done
+[2026-10-18T20:02:59.828Z] SHOT q-name-field.png
+[2026-10-18T20:02:59.828Z] ACT click Done 638 654 detected
+[2026-10-18T20:03:03.940Z] SEE step 3 class: title-menu buttons: 4 scene: mean=92 var=946 centre: var=2865
+[2026-10-18T20:03:04.531Z] SHOT ai-03-title-menu.png
+[2026-10-18T20:03:04.531Z] DECIDE open Singleplayer; ACT click 638 354 detected
+[2026-10-18T20:03:08.264Z] SEE step 4 class: world-select buttons: 2 scene: mean=15 var=210 centre: var=8
+[2026-10-18T20:03:08.352Z] SHOT ai-04-world-select.png
+[2026-10-18T20:03:08.433Z] DECIDE empty list -> Create New World; ACT click 874 594
+[2026-10-18T20:03:11.507Z] SEE step 5 class: title-menu buttons: 3 scene: mean=56 var=2470 centre: var=2565
+[2026-10-18T20:03:11.603Z] SHOT ai-05-title-menu.png
+[2026-10-18T20:03:11.603Z] DECIDE open Singleplayer; ACT click 638 330 detected
+[2026-10-18T20:03:15.226Z] SEE step 6 class: title-menu buttons: 4 scene: mean=38 var=1636 centre: var=3884
+[2026-10-18T20:03:15.315Z] SHOT ai-06-title-menu.png
+[2026-10-18T20:03:15.316Z] DECIDE open Singleplayer; ACT click 638 376 detected
+[2026-10-18T20:03:18.866Z] SEE step 7 class: create-world buttons: 3 scene: mean=42 var=2206 centre: var=5047
+[2026-10-18T20:03:18.950Z] SHOT ai-07-create-world.png
+[2026-10-18T20:03:18.951Z] DECIDE confirm world creation; ACT click 398 666 detected
+[2026-10-18T20:03:23.659Z] SEE step 8 class: loading buttons: 0 scene: mean=29 var=580 centre: var=29
+[2026-10-18T20:03:24.176Z] SHOT ai-08-loading.png
+[2026-10-18T20:03:24.176Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:03:29.817Z] SEE step 9 class: loading buttons: 0 scene: mean=26 var=381 centre: var=29
+[2026-10-18T20:03:30.469Z] SHOT ai-09-loading.png
+[2026-10-18T20:03:30.469Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:03:41.001Z] SEE step 10 class: loading buttons: 0 scene: mean=13 var=30 centre: var=2326
+[2026-10-18T20:03:42.754Z] SHOT ai-10-loading.png
+[2026-10-18T20:03:42.754Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:03:55.844Z] SEE step 11 class: loading buttons: 0 scene: mean=13 var=30 centre: var=2326
+[2026-10-18T20:03:58.502Z] SHOT ai-11-loading.png
+[2026-10-18T20:03:58.502Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:04:11.250Z] SEE step 12 class: loading buttons: 0 scene: mean=13 var=30 centre: var=577
+[2026-10-18T20:04:12.013Z] SHOT ai-12-loading.png
+[2026-10-18T20:04:12.013Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:04:17.690Z] SEE step 13 class: unknown buttons: 1 scene: mean=46 var=1616 centre: var=577
+[2026-10-18T20:04:18.422Z] SHOT ai-13-unknown.png
+[2026-10-18T20:04:18.422Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:04:24.405Z] SEE step 14 class: unknown buttons: 1 scene: mean=46 var=1616 centre: var=577
+[2026-10-18T20:04:25.097Z] SHOT ai-14-unknown.png
+[2026-10-18T20:04:25.097Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:04:31.361Z] SEE step 15 class: unknown buttons: 1 scene: mean=46 var=1616 centre: var=577
+[2026-10-18T20:04:32.139Z] SHOT ai-15-unknown.png
+[2026-10-18T20:04:32.139Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:04:38.147Z] SEE step 16 class: unknown buttons: 1 scene: mean=46 var=1616 centre: var=577
+[2026-10-18T20:04:38.765Z] SHOT ai-16-unknown.png
+[2026-10-18T20:04:38.765Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:04:44.524Z] SEE step 17 class: unknown buttons: 1 scene: mean=46 var=1616 centre: var=577
+[2026-10-18T20:04:45.064Z] SHOT ai-17-unknown.png
+[2026-10-18T20:04:45.064Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:04:50.772Z] SEE step 18 class: unknown buttons: 1 scene: mean=46 var=1616 centre: var=577
+[2026-10-18T20:04:51.454Z] SHOT ai-18-unknown.png
+[2026-10-18T20:04:51.454Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:04:57.378Z] SEE step 19 class: unknown buttons: 1 scene: mean=46 var=1616 centre: var=577
+[2026-10-18T20:04:57.932Z] SHOT ai-19-unknown.png
+[2026-10-18T20:04:57.932Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:05:04.066Z] SEE step 20 class: unknown buttons: 1 scene: mean=46 var=1616 centre: var=577
+[2026-10-18T20:05:04.834Z] SHOT ai-20-unknown.png
+[2026-10-18T20:05:04.834Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:05:10.551Z] SEE step 21 class: unknown buttons: 1 scene: mean=46 var=1616 centre: var=577
+[2026-10-18T20:05:11.169Z] SHOT ai-21-unknown.png
+[2026-10-18T20:05:11.169Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:05:17.427Z] SEE step 22 class: unknown buttons: 1 scene: mean=46 var=1616 centre: var=577
+[2026-10-18T20:05:18.064Z] SHOT ai-22-unknown.png
+[2026-10-18T20:05:18.064Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:05:23.849Z] SEE step 23 class: unknown buttons: 1 scene: mean=46 var=1616 centre: var=577
+[2026-10-18T20:05:24.441Z] SHOT ai-23-unknown.png
+[2026-10-18T20:05:24.441Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:05:30.369Z] SEE step 24 class: unknown buttons: 1 scene: mean=46 var=1616 centre: var=577
+[2026-10-18T20:05:30.824Z] SHOT ai-24-unknown.png
+[2026-10-18T20:05:30.824Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:05:36.612Z] SEE step 25 class: unknown buttons: 1 scene: mean=46 var=1616 centre: var=577
+[2026-10-18T20:05:37.449Z] SHOT ai-25-unknown.png
+[2026-10-18T20:05:37.449Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:05:43.470Z] SEE step 26 class: unknown buttons: 1 scene: mean=46 var=1616 centre: var=577
+[2026-10-18T20:05:43.990Z] SHOT ai-26-unknown.png
+[2026-10-18T20:05:43.991Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:05:49.943Z] SEE step 27 class: unknown buttons: 1 scene: mean=46 var=1616 centre: var=577
+[2026-10-18T20:05:50.501Z] SHOT ai-27-unknown.png
+[2026-10-18T20:05:50.501Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:05:56.253Z] SEE step 28 class: unknown buttons: 1 scene: mean=46 var=1616 centre: var=577
+[2026-10-18T20:05:56.882Z] SHOT ai-28-unknown.png
+[2026-10-18T20:05:56.882Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:06:03.164Z] SEE step 29 class: unknown buttons: 1 scene: mean=46 var=1616 centre: var=577
+[2026-10-18T20:06:03.854Z] SHOT ai-29-unknown.png
+[2026-10-18T20:06:03.855Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:06:09.676Z] SEE step 30 class: unknown buttons: 1 scene: mean=46 var=1616 centre: var=577
+[2026-10-18T20:06:10.243Z] SHOT ai-30-unknown.png
+[2026-10-18T20:06:10.243Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:06:16.022Z] SEE step 31 class: unknown buttons: 1 scene: mean=46 var=1616 centre: var=577
+[2026-10-18T20:06:16.556Z] SHOT ai-31-unknown.png
+[2026-10-18T20:06:16.557Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:06:22.286Z] SEE step 32 class: unknown buttons: 1 scene: mean=46 var=1616 centre: var=577
+[2026-10-18T20:06:22.859Z] SHOT ai-32-unknown.png
+[2026-10-18T20:06:22.859Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:06:28.525Z] SEE step 33 class: unknown buttons: 1 scene: mean=46 var=1616 centre: var=577
+[2026-10-18T20:06:29.191Z] SHOT ai-33-unknown.png
+[2026-10-18T20:06:29.191Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:06:35.218Z] SEE step 34 class: unknown buttons: 1 scene: mean=46 var=1616 centre: var=577
+[2026-10-18T20:06:35.793Z] SHOT ai-34-unknown.png
+[2026-10-18T20:06:35.793Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:06:41.548Z] SEE step 35 class: unknown buttons: 1 scene: mean=46 var=1616 centre: var=577
+[2026-10-18T20:06:42.057Z] SHOT ai-35-unknown.png
+[2026-10-18T20:06:42.057Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:06:47.956Z] SEE step 36 class: unknown buttons: 1 scene: mean=46 var=1616 centre: var=577
+[2026-10-18T20:06:48.798Z] SHOT ai-36-unknown.png
+[2026-10-18T20:06:48.798Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:06:54.747Z] SEE step 37 class: unknown buttons: 1 scene: mean=46 var=1616 centre: var=577
+[2026-10-18T20:06:55.327Z] SHOT ai-37-unknown.png
+[2026-10-18T20:06:55.327Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:07:01.197Z] SEE step 38 class: unknown buttons: 1 scene: mean=46 var=1616 centre: var=577
+[2026-10-18T20:07:01.829Z] SHOT ai-38-unknown.png
+[2026-10-18T20:07:01.829Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:07:07.982Z] SEE step 39 class: unknown buttons: 1 scene: mean=46 var=1616 centre: var=577
+[2026-10-18T20:07:08.660Z] SHOT ai-39-unknown.png
+[2026-10-18T20:07:08.660Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T20:07:12.660Z] FATAL never reached in-game; aborting with evidence
+[2026-10-18T20:07:14.246Z] SHOT ai-FAIL-last.png
+[2026-10-18T20:07:14.375Z] CAST OFF frames: 1841
+[2026-10-18T20:07:15.686Z] AUDIO state: {"state":"stopped","mime":"audio/webm;codecs=opus","chunks":28} bytes: 201579
+[2026-10-18T20:09:07.737Z] WATCHDOG 400s: graceful stop, dump what we have
+WATCHDOG-EXIT

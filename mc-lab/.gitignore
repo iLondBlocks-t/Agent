@@ -6,3 +6,6 @@ src/
 output/*.mp4
 # game autosaves created at runtime
 saves/
+browser/node_modules/
+output/*.webm
+output/player.html

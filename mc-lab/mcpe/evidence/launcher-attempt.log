@@ -1,0 +1,20 @@
+Exception in thread "AWT-EventQueue-0" java.awt.HeadlessException: 
+No X11 DISPLAY variable was set,
+or no headful library support was found,
+but this program performed an operation which requires it.
+	at java.desktop/java.awt.GraphicsEnvironment.checkHeadless(Unknown Source)
+	at java.desktop/java.awt.Window.<init>(Unknown Source)
+	at java.desktop/java.awt.Frame.<init>(Unknown Source)
+	at java.desktop/java.awt.Frame.<init>(Unknown Source)
+	at java.desktop/javax.swing.JFrame.<init>(Unknown Source)
+	at net.eqozqq.nostalgialauncherdesktop.NostalgiaLauncherDesktop.<init>(NostalgiaLauncherDesktop.java:98)
+	at net.eqozqq.nostalgialauncherdesktop.NostalgiaLauncherDesktop.lambda$main$4(NostalgiaLauncherDesktop.java:1013)
+	at java.desktop/java.awt.event.InvocationEvent.dispatch(Unknown Source)
+	at java.desktop/java.awt.EventQueue.dispatchEventImpl(Unknown Source)
+	at java.desktop/java.awt.EventQueue.dispatchEvent(Unknown Source)
+	at java.desktop/java.awt.EventDispatchThread.pumpOneEventForFilters(Unknown Source)
+	at java.desktop/java.awt.EventDispatchThread.pumpEventsForFilter(Unknown Source)
+	at java.desktop/java.awt.EventDispatchThread.pumpEventsForHierarchy(Unknown Source)
+	at java.desktop/java.awt.EventDispatchThread.pumpEvents(Unknown Source)
+	at java.desktop/java.awt.EventDispatchThread.pumpEvents(Unknown Source)
+	at java.desktop/java.awt.EventDispatchThread.run(Unknown Source)

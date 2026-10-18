@@ -1,0 +1,22 @@
+== PHASE-1 ENVIRONMENT PROBES Sun Oct 18 15:13:01 UTC 2026 ==
+--- OS:
+Linux 6.1.158+ x86_64
+PRETTY_NAME="Debian GNU/Linux 12 (bookworm)"
+--- virtualization: /dev/kvm:
+ls: cannot access '/dev/kvm': No such file or directory
+--- CPU virt flags (vmx/svm count):
+0
+--- qemu binary:
+MISSING
+--- CPU/RAM:
+2
+Mem:           3.8Gi       317Mi       2.6Gi       1.0Mi       1.2Gi       3.5Gi
+--- Windows 10 ISO hosts (Microsoft):
+000  https://www.microsoft.com/
+000  https://software-download.microsoft.com/
+000  https://go.microsoft.com/
+--- LateCraft.ru:19150 TCP:
+TCP-OK
+--- LateCraft.ru:19150 UDP RakNet unconnected_ping:
+ping sent
+NO-RAKNET-PONG (UDP unreachable/filtered)

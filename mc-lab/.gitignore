@@ -1,0 +1,20 @@
+# toolchain (re-creatable, ~300 MB) and third-party sources
+.venv/
+ffmpeg-bin/
+src/
+# generated video (kept in the workspace, out of git; see README §5)
+output/*.mp4
+# game autosaves created at runtime
+saves/
+browser/node_modules/
+output/*.webm
+output/player.html
+eagler/client/
+eagler/client188/
+eagler/frames/
+eagler/frames2/
+eagler/concat*.txt
+eagler/shots/p*.png
+eagler/shots/0*.png
+eagler/shots/1*.png
+bedrock/node_modules/

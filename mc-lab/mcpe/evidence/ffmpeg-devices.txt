@@ -1,0 +1,11 @@
+Devices:
+ D. = Demuxing supported
+ .E = Muxing supported
+ ---
+ DE alsa            ALSA audio output
+ DE fbdev           Linux framebuffer
+ D  lavfi           Libavfilter virtual input device
+ DE oss             OSS (Open Sound System) playback
+ DE video4linux2,v4l2 Video4Linux2 output device
+ D  x11grab         X11 screen capture, using XCB
+  E xv              XV (XVideo) output device

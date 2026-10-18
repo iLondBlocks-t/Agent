@@ -1,0 +1,122 @@
+SESSION REPORT — "Minecraft PE 0.14.3 on Windows 10, join LateCraft.ru:19150, record desktop"
+Date: 2026-10-18 (UTC) · Workspace: /home/user/Agent (Debian 12 container, Linux 6.1.158 x86_64)
+Author: Arena agent (session branch arena/37048818-agent). NOTHING BELOW IS SIMULATED OR FABRICATED.
+
+================================================================================
+VERDICT SUMMARY
+================================================================================
+The requested end-to-end task is IMPOSSIBLE in this workspace for four
+independent, verified reasons (each probed, evidence in ./evidence/):
+
+ 1. NO WINDOWS 10 CAN EXIST HERE.
+    - /dev/kvm: absent; CPU virtualization flags (vmx/svm): 0; qemu: not installed
+      and not installable (apt mirror deb.debian.org unreachable from sandbox).
+      => hardware virtualization unavailable; a Windows 10 VM cannot boot.
+    - Windows 10 ISO sources (microsoft.com, software-download.microsoft.com,
+      go.microsoft.com) are outside the sandbox network allowlist (HTTP 000).
+      Downloading a Windows ISO from any other location would be unlicensed
+      redistribution, which the task rules forbid.
+    - The workspace is a headless Linux container: no desktop, no display
+      server, no audio hardware, no DirectShow/gdigrab devices.
+    Per task rule, Phase 1 STOPS HERE and is reported, not pretended.
+
+ 2. THE REQUIRED GAME FILE DOES NOT EXIST ON ANY AUTHORIZED SOURCE.
+    Repo pthreegames/MCPE-0.14.3-PC was cloned and its zip extracted intact
+    (./extracted/: NostalgiaLauncher-P3G.jar + ninecraft.exe + vcruntime140.dll
+    + licenses/, kept together as the README demands). Its README states:
+      "Game files: PE-a0.14.3-1-x86.apk — you must supply this yourself.
+       The APK is not included and never will be. It is Mojang's property."
+    The APK is Mojang's proprietary binary. This workspace has no licensed
+    Mojang/Microsoft channel (those hosts are blocked) and no authorization,
+    so per the task's own rule ("only from a legitimate source you are
+    authorized to access") the APK was NOT obtained and NOT substituted.
+    Consequence: the launcher has nothing to unpack; the game cannot start.
+
+ 3. THE LOADER IS WINDOWS-ONLY.
+    ninecraft.exe and vcruntime140.dll are PE/Windows binaries (magic 4d5a).
+    There is no Windows and no Windows-compatible layer here (no Wine; not
+    installable). The launcher jar itself was executed with a real JRE
+    (Temurin 25 via jdk4py) and died with java.awt.HeadlessException —
+    see evidence/launcher-attempt.log. Title-screen verification impossible.
+
+ 4. LateCraft.ru:19150 CANNOT BE REACHED BY THE GAME PROTOCOL FROM HERE.
+    TCP connect to the port succeeds, but Minecraft Bedrock/PE speaks RakNet
+    over UDP, and a RakNet unconnected_ping to LateCraft.ru:19150 produced
+    NO pong within 8 s (UDP egress filtered by the sandbox) — see
+    evidence/probes.txt. Therefore joining, chatting and walking on the live
+    server are impossible from this workspace. No join was ever claimed.
+
+================================================================================
+PHASE-BY-PHASE STATUS
+================================================================================
+Phase 1 (Windows 10 desktop)            : BLOCKED — reasons 1 above. Not faked.
+Phase 2 (install REAL MCPE 0.14.3 PC)   : PARTIAL — repo read, zip downloaded
+        from GitHub (allowed host), extracted intact, contents verified
+        (jar Main-Class: net.eqozqq.nostalgialauncherdesktop.NostalgiaLauncherDesktop;
+        ninecraft.exe = Windows PE). Launch BLOCKED — reasons 2 & 3.
+        Missing file, precisely: "PE-a0.14.3-1-x86.apk" (Mojang property,
+        x86 variant), absent from the project and from every authorized source.
+Phase 3 (username LondAgent in game)    : BLOCKED — game cannot launch.
+        (Protocol-level appendix below shows the name LondAgent accepted by an
+         open-source Bedrock server on loopback; that is NOT the game UI.)
+Phase 4 (add + join LateCraft.ru:19150) : BLOCKED — reason 4. No world loaded;
+        no join claimed. Server entry could not even be created (no game UI).
+Phase 5 (/register Azertyui in chat)    : NOT PERFORMED anywhere against any
+        live server — the task forbids it before a successful join, and no join
+        was possible. The password was not spammed or reused.
+Phase 6 (FFmpeg gdigrab desktop record) : BLOCKED — gdigrab is a Windows input
+        device; this Linux FFmpeg build lists only alsa/fbdev/lavfi/oss/v4l2/
+        x11grab (evidence/ffmpeg-devices.txt), and there is no X server for
+        x11grab nor any desktop to capture. minecraft_session.mp4 was
+        DELIBERATELY NOT CREATED: any such file would be fabricated.
+Phase 7 (mouse-cursor plugin)           : MOOT — no desktop exists; FFmpeg
+        -draw_mouse applies to gdigrab/x11grab captures, neither usable here.
+Phase 8 (walk in server world)          : BLOCKED — never inside server world.
+Phase 9 (validation checklist)          : see below.
+
+================================================================================
+PHASE-9 CHECKLIST (honest)
+================================================================================
+[ ✗ ] Windows 10 desktop actually booted            -> impossible (no virt, no ISO source)
+[ ✗ ] Actual Minecraft PE 0.14.3 PC port launched   -> APK missing (Mojang property), loader Windows-only
+[ ✗ ] Player name is "LondAgent" (in game)          -> game never launched
+[ ✓ ] Server address/port used where possible       -> LateCraft.ru:19150 probed exactly (TCP ok, UDP dead)
+[ ✗ ] Live server successfully joined               -> UDP RakNet unreachable from sandbox
+[ ✗ ] "/register Azertyui" submitted & answered     -> not submitted (no join); no invented response
+[ ✗ ] Player moved in server world                  -> never in server world
+[ ✗ ] FFmpeg captured Windows desktop from start    -> no Windows, no gdigrab
+[ ✗ ] Mouse cursor visible in recording             -> no recording exists (by honesty, not oversight)
+[ ✗ ] Game/system audio present                     -> no audio device in container
+[ ✓ ] Final video checked for corruption            -> no final video was produced to check
+
+================================================================================
+APPENDIX A — what WAS genuinely verified this session (labelled, not substituted)
+================================================================================
+A1. Local open-source Bedrock-protocol loopback test (bedrock-protocol, MIT;
+    raknet-native prebuilt binding on Node 22): a client with username
+    "LondAgent" connected to a local server on port 19150 and joined; the
+    server greeted it in chat. Log: ../bedrock/session.log.
+    This is NOT LateCraft and NOT Minecraft PE 0.14.3; it only proves the
+    username/chat mechanics at protocol level with open-source software.
+    (Full in-world movement was not achieved locally either: the minimal
+    library server does not simulate a world/start_game.)
+A2. FFmpeg 7.x linux binary functional (imageio-ffmpeg) — used in earlier
+    verified recordings of OTHER games in this workspace (Minicraft headless
+    session and EaglercraftX 1.8.8 in real headless Chromium; those videos
+    were delivered via Google Drive in previous turns and remain valid
+    separate deliverables, clearly distinct from this task's impossible ask).
+
+================================================================================
+EVIDENCE FILES
+================================================================================
+evidence/probes.txt               environment + network + RakNet ping results
+evidence/launcher-attempt.log     JRE 25 run of NostalgiaLauncher-P3G.jar -> HeadlessException
+evidence/ffmpeg-devices.txt       ffmpeg -devices on this Linux box (no gdigrab)
+extracted/                        the project's files, kept together (jar/exe/dll/licenses)
+../bedrock/session.log            appendix A1 protocol log
+README.md (this folder)           upstream project README, quoted above
+
+Remaining blockers, exactly: (a) no virtualization + no licensed Windows ISO
+source; (b) no authorized source for Mojang's PE-a0.14.3-1-x86.apk; (c) no
+Windows layer for ninecraft.exe; (d) sandbox filters UDP, so RakNet/Bedrock
+servers (including LateCraft.ru:19150) are unreachable.

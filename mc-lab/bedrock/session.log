@@ -1,0 +1,5 @@
+{"t":0.4,"e":"server_started","host":"127.0.0.1","port":19150}
+{"t":0.4,"e":"client_connecting","username":"LondAgent","offline":true,"port":19150}
+{"t":0.6,"e":"server:client_connected","addr":""}
+{"t":0.7,"e":"server:client_joined","username":"LondAgent"}
+{"t":0.7,"e":"client:server_said","message":"§7[§6LondCraft§7] §eWelcome §aLondAgent§e! Use §a/register <pass>§e to protect your account."}

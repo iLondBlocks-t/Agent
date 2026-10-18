@@ -1,0 +1,52 @@
+[2026-10-18T16:19:17.796Z] BOOT page loaded
+[2026-10-18T16:19:20.801Z] BOOT canvas after 3 s
+[2026-10-18T16:19:20.810Z] BOOT probe injected; audio state: "idle"
+[2026-10-18T16:19:35.821Z] CAST ON
+[2026-10-18T16:19:35.859Z] SEE step 0 class: sound-gate buttons: 0 scene: mean=251 var=35 centre: var=12
+[2026-10-18T16:19:35.909Z] SHOT ai-00-sound-gate.png
+[2026-10-18T16:19:35.909Z] DECIDE Eaglercraft sound gate ('press any key to enable sound') -> press Enter + click
+[2026-10-18T16:19:40.505Z] SEE step 1 class: sound-gate buttons: 0 scene: mean=217 var=7186 centre: var=14416
+[2026-10-18T16:19:40.567Z] SHOT ai-01-sound-gate.png
+[2026-10-18T16:19:40.567Z] DECIDE Eaglercraft sound gate ('press any key to enable sound') -> press Enter + click
+[2026-10-18T16:19:44.540Z] SEE step 2 class: edit-profile buttons: 3 scene: mean=38 var=2268 centre: var=1668
+[2026-10-18T16:19:44.698Z] SHOT ai-02-edit-profile.png
+[2026-10-18T16:19:44.698Z] DECIDE set username=LondAgent then Done
+[2026-10-18T16:19:46.189Z] ACT click Done 638 654 detected
+[2026-10-18T16:19:50.384Z] SEE step 3 class: title-menu buttons: 4 scene: mean=92 var=957 centre: var=2865
+[2026-10-18T16:19:50.950Z] SHOT ai-03-title-menu.png
+[2026-10-18T16:19:50.950Z] DECIDE open Singleplayer; ACT click 638 354 detected
+[2026-10-18T16:19:54.624Z] SEE step 4 class: world-select buttons: 2 scene: mean=15 var=210 centre: var=8
+[2026-10-18T16:19:54.727Z] SHOT ai-04-world-select.png
+[2026-10-18T16:19:54.728Z] DECIDE empty list -> Create New World; ACT click 874 594
+[2026-10-18T16:19:57.692Z] SEE step 5 class: title-menu buttons: 3 scene: mean=56 var=2470 centre: var=2565
+[2026-10-18T16:19:57.768Z] SHOT ai-05-title-menu.png
+[2026-10-18T16:19:57.768Z] DECIDE open Singleplayer; ACT click 638 330 detected
+[2026-10-18T16:20:01.429Z] SEE step 6 class: title-menu buttons: 4 scene: mean=38 var=1634 centre: var=3884
+[2026-10-18T16:20:01.536Z] SHOT ai-06-title-menu.png
+[2026-10-18T16:20:01.536Z] DECIDE open Singleplayer; ACT click 638 376 detected
+[2026-10-18T16:20:05.102Z] SEE step 7 class: create-world buttons: 3 scene: mean=42 var=2204 centre: var=5047
+[2026-10-18T16:20:05.247Z] SHOT ai-07-create-world.png
+[2026-10-18T16:20:05.247Z] DECIDE confirm world creation; ACT click 398 666 detected
+[2026-10-18T16:20:09.812Z] SEE step 8 class: loading buttons: 0 scene: mean=29 var=575 centre: var=29
+[2026-10-18T16:20:09.968Z] SHOT ai-08-loading.png
+[2026-10-18T16:20:09.968Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T16:20:15.752Z] SEE step 9 class: loading buttons: 0 scene: mean=26 var=381 centre: var=29
+[2026-10-18T16:20:16.608Z] SHOT ai-09-loading.png
+[2026-10-18T16:20:16.608Z] DECIDE wait (world generating / screen unclear)
+[2026-10-18T16:20:23.104Z] SEE step 10 class: in-game buttons: 0 scene: mean=112 var=1873 centre: var=513
+[2026-10-18T16:20:25.259Z] SHOT ai-10-in-game.png
+[2026-10-18T16:20:25.259Z] DECIDE in-world detected -> start play sequence
+[2026-10-18T16:20:28.084Z] ACT play: W 2.5s
+[2026-10-18T16:20:31.954Z] ACT play: look right
+[2026-10-18T16:20:59.122Z] ACT play: jump x2
+[2026-10-18T16:21:05.208Z] ACT play: strafe D 1.8s
+[2026-10-18T16:21:09.402Z] ACT play: look left
+[2026-10-18T16:21:32.864Z] ACT play: strafe A 1.8s
+[2026-10-18T16:21:36.098Z] ACT play: mine block 2.2s
+[2026-10-18T16:21:38.967Z] ACT play: W+A 1.6s + jump
+[2026-10-18T16:21:42.668Z] ACT play: back S 1.2s
+[2026-10-18T16:21:44.373Z] ACT play: mine 2.0s
+[2026-10-18T16:21:48.746Z] SHOT ai-play-end.png
+[2026-10-18T16:21:52.421Z] SHOT ai-pause.png
+[2026-10-18T16:21:52.500Z] CAST OFF frames: 722
+[2026-10-18T16:21:53.652Z] AUDIO state: {"state":"stopped","mime":"audio/webm;codecs=opus","chunks":47} bytes: 296114

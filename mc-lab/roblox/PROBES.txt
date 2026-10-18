@@ -1,0 +1,33 @@
+PROBE: "play Roblox in Chromium via now.gg (or any site), log in with supplied account,
+record 10 s of real gameplay with audio" — reachability audit
+Date: 2026-10-18 · host: e2b sandbox (Debian 12, headless, 2 vCPU)
+
+HTTPS reachability (curl -w %{http_code}, 7 s timeout):
+  now.gg               -> 000        www.now.gg          -> 000
+  roblox.com           -> 000        www.roblox.com      -> 000
+  api.roblox.com       -> 000        assets.roblox.com   -> 000
+  play.geforcenow.com  -> 000        xbox.com            -> 000
+  cloud.google.com     -> 000
+Allowed hosts in this sandbox are ONLY: github.com, codeload.github.com,
+api.github.com, registry.npmjs.org, pypi.org, files.pythonhosted.org.
+=> The Roblox website, the Roblox client CDN and every cloud-gaming front door
+   (now.gg, GeForce NOW, Xbox Cloud, Google) are outside the allowlist.
+
+UDP egress (now.gg delivers gameplay as a WebRTC stream = UDP):
+  STUN bind to stun.l.google.com:19302 -> TimeoutError (no reply in 5 s)
+  UDP to now.gg:443                    -> TimeoutError
+=> Even if the HTTPS front door were open, the WebRTC media plane cannot
+   traverse this network (UDP egress filtered; same filter that blocked the
+   Bedrock/RakNet ping to LateCraft.ru:19150).
+
+DNS resolves (now.gg -> 108.138.94.49; www.roblox.com -> 128.116.115.3) but the
+firewall drops the connections, so resolution alone buys nothing.
+
+Roblox has no open-source, self-hostable client: the player binary is
+proprietary and served only from roblox.com/CDN (blocked). There is therefore
+no legitimate path to a running Roblox session inside this sandbox.
+
+VERDICT: impossible here — three independent blockers (HTTPS allowlist, filtered
+UDP/WebRTC, proprietary client with no authorized offline source).
+The supplied account credentials were NOT sent anywhere (no reachable endpoint
+exists); they were never written to any file in this workspace.

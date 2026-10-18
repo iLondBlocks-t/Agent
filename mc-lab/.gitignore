@@ -18,3 +18,7 @@ eagler/shots/p*.png
 eagler/shots/0*.png
 eagler/shots/1*.png
 bedrock/node_modules/
+mc-lab/mcpe/repo/
+eagler/shots/ai-*.png
+output/clipchk-*.png
+output/concat.txt

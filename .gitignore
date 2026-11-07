@@ -1,0 +1,10 @@
+node_modules/
+.tools/
+film/shots/
+film/silent.mp4
+film/film.mp4
+film/audio.wav
+film/list.txt
+__pycache__/
+*.pyc
+film/.sfxcache/

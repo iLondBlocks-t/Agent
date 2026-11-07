@@ -1,0 +1,25 @@
+{
+  "name": "agent",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/iLondBlocks-t/Agent.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/iLondBlocks-t/Agent/issues"
+  },
+  "homepage": "https://github.com/iLondBlocks-t/Agent#readme",
+  "dependencies": {
+    "@remotion/cli": "^4.0.541",
+    "remotion": "^4.0.541",
+    "three": "^0.169.0"
+  }
+}

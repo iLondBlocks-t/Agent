@@ -101,8 +101,8 @@ ls node_modules/.bin/playwright  # → playwright 1.65 via oooh-i-see-it-now
 
 - `out/testcube.png` — 1920×1080 deterministic cube, lighting verified.
 - `out/main*.png` / `out/main*v2.png` — 7 checkpoint stills covering all acts.
-- `out/black-stickman-why-yes.mp4` — 3000 frames, 30 fps, 100 sec, 1920×1080 *0.5 = 960×540, h264, ~15 min render (concurrency 1, swangle). Contains all script beats with ThreeCanvas inset cubes, doors, promise boxes, each with ambient+directional lighting and camera at [0,0,*] visible.
-- Full-scale 1920×1080 can be rendered via `... --scale=1` overnight (≈50 min on this 2-core, ~2 fps 720p, ~1 fps 1080p per docs).
+- `out/black-stickman-why-yes.mp4` — **DELIVERED** 6.7 MB, 3000 frames, 30 fps, 100.05 sec, 960×540 (1920×1080 ×0.5), h264 yuv420p + aac, produced 2026-11-08 00:14 UTC via `LD_LIBRARY_PATH=/tmp/al2023/lib:/tmp FONTCONFIG_PATH=/tmp/fonts npx remotion render src/index.ts Main out/black-stickman-why-yes.mp4 --scale=0.5 --overwrite`. Frames: 1056s + stitch 17s (concurrency 1, swangle, slowest frame 0 = 2.4s warmup, rest ~0.32s). Verified via `ffmpeg -i`: `Duration 00:01:40.05, 960x540 SAR 1:1 DAR 16:9, 30 fps, 232 kb/s video`. Thumbs `out/thumb-05s.jpg` (Hook) and `out/thumb-50s.jpg` (Payoff) extracted.
+- Full-scale 1920×1080 can be rendered via `... --scale=1` (≈45 min, ~1 fps @1080p on 2-core) — same frames, identical visuals, larger. Command in `README.md`.
 
 ## Remaining Visual Known Issues (non-blocking for Essentiel, polished next iteration)
 - Hook phone prop slightly offset (Stickman arm angle -0.9 still left-biased) — acceptable, phone still readable.

@@ -1,0 +1,35 @@
+{
+  "name": "small-traps-why-do-you-say-yes",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Small Traps — ep.01 \"Why Do You Say Yes When You Want to Say No?\" — Remotion + three.js vector short",
+  "scripts": {
+    "dev": "vite --host 0.0.0.0 --port 3000",
+    "build": "vite build",
+    "studio": "remotion studio src/remotion/index.ts",
+    "render": "remotion render src/remotion/index.ts SmallTraps out/small-traps.mp4",
+    "frames": "node scripts/qa-frames.mjs",
+    "still": "remotion still src/remotion/index.ts SmallTraps out/still.png"
+  },
+  "dependencies": {
+    "@fontsource/nunito": "^5.3.0",
+    "@fontsource/playfair-display": "^5.3.0",
+    "@fontsource/poppins": "^5.3.0",
+    "@remotion/cli": "4.0.409",
+    "@remotion/player": "4.0.409",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "remotion": "4.0.409",
+    "three": "0.170.0"
+  },
+  "devDependencies": {
+    "@resvg/resvg-js": "2.6.2",
+    "@types/node": "^22.9.0",
+    "@types/react": "18.3.12",
+    "@types/react-dom": "18.3.1",
+    "@types/three": "0.170.0",
+    "@vitejs/plugin-react": "4.3.4",
+    "typescript": "5.6.3",
+    "vite": "^6.0.0"
+  }
+}

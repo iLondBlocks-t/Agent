@@ -1,0 +1,246 @@
+@font-face {
+  font-family: 'Poppins';
+  font-weight: 400;
+  font-display: swap;
+  src: url('/fonts/poppins-latin-400-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Poppins';
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/poppins-latin-500-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Poppins';
+  font-weight: 600;
+  font-display: swap;
+  src: url('/fonts/poppins-latin-600-normal.woff2') format('woff2');
+}
+@font-face {
+  font-family: 'Playfair Display';
+  font-weight: 500;
+  font-display: swap;
+  src: url('/fonts/playfair-display-latin-500-normal.woff2') format('woff2');
+}
+
+:root {
+  --ink: #f6e9d8;
+  --muted: #b79cc8;
+  --coral: #f4633f;
+  --bg: #170f21;
+  --panel: #241733;
+  --line: #3b2a4e;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  min-height: 100%;
+  background: radial-gradient(120% 80% at 20% 0%, #3a2350 0%, #170f21 60%, #100a17 100%);
+  color: var(--ink);
+  font-family: 'Poppins', system-ui, sans-serif;
+}
+
+.app {
+  max-width: 1320px;
+  margin: 0 auto;
+  padding: 28px 24px 48px;
+}
+
+header {
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  gap: 20px;
+  flex-wrap: wrap;
+}
+
+h1 {
+  font-size: 26px;
+  letter-spacing: 8px;
+  font-weight: 600;
+  margin: 0;
+  color: #e8cfb2;
+}
+
+h1 .ep {
+  font-size: 13px;
+  letter-spacing: 3px;
+  color: var(--muted);
+  font-weight: 400;
+  margin-left: 10px;
+}
+
+.sub {
+  margin: 6px 0 0;
+  color: #cbb6da;
+  font-size: 15px;
+  font-weight: 400;
+}
+
+.meta {
+  display: flex;
+  gap: 10px;
+  font-size: 12px;
+  color: var(--muted);
+}
+
+.meta span {
+  border: 1px solid var(--line);
+  border-radius: 999px;
+  padding: 5px 12px;
+  background: rgba(36, 23, 51, 0.6);
+}
+
+main {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 320px;
+  gap: 24px;
+  margin-top: 22px;
+  align-items: start;
+}
+
+.stage {
+  position: relative;
+  border-radius: 26px;
+  overflow: hidden;
+  background: #120a1c;
+  border: 1px solid var(--line);
+  box-shadow: 0 30px 80px rgba(0, 0, 0, 0.5);
+  aspect-ratio: 9 / 16;
+  max-height: calc(100vh - 150px);
+  margin: 0 auto;
+  width: auto;
+  height: 100%;
+}
+
+.stage.wide {
+  aspect-ratio: 16 / 9;
+  width: 100%;
+  height: auto;
+  max-height: none;
+}
+
+.stage > div {
+  height: 100%;
+}
+
+aside {
+  display: flex;
+  flex-direction: column;
+  gap: 18px;
+}
+
+h2 {
+  font-size: 12px;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: var(--muted);
+  font-weight: 600;
+  margin: 0 0 10px;
+}
+
+.chapters {
+  background: rgba(36, 23, 51, 0.7);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 16px;
+}
+
+.chapters button {
+  display: flex;
+  width: 100%;
+  justify-content: space-between;
+  align-items: center;
+  gap: 10px;
+  background: transparent;
+  color: #e2d2ee;
+  border: 0;
+  border-radius: 12px;
+  padding: 9px 10px;
+  font: inherit;
+  font-size: 14px;
+  cursor: pointer;
+  text-align: left;
+}
+
+.chapters button:hover {
+  background: rgba(244, 99, 63, 0.12);
+}
+
+.chapters button.on {
+  background: rgba(244, 99, 63, 0.2);
+  color: #fff2e4;
+}
+
+.chapters em {
+  font-style: normal;
+  font-size: 12px;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+
+.info {
+  background: rgba(36, 23, 51, 0.7);
+  border: 1px solid var(--line);
+  border-radius: 20px;
+  padding: 16px;
+  font-size: 14px;
+  color: #d8c8e6;
+  line-height: 1.6;
+}
+
+.info p {
+  margin: 0 0 12px;
+}
+
+.swatches {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 14px;
+}
+
+.swatches span {
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  display: inline-block;
+}
+
+.toggle {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  font-size: 13px;
+  color: #cbb6da;
+  margin-bottom: 10px;
+  cursor: pointer;
+}
+
+.hint {
+  font-size: 12px;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+code {
+  background: rgba(244, 99, 63, 0.14);
+  color: #ffcbaf;
+  padding: 1px 6px;
+  border-radius: 6px;
+  font-size: 11.5px;
+}
+
+@media (max-width: 900px) {
+  main {
+    grid-template-columns: 1fr;
+  }
+  .stage {
+    max-height: 72vh;
+  }
+}

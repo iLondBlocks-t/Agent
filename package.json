@@ -1,0 +1,27 @@
+{
+  "name": "black-stickman-remotion",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "remotion studio --port 3000 --host 0.0.0.0",
+    "render": "remotion render src/index.ts out/video.mp4 --overwrite",
+    "still": "remotion still src/index.ts main out/still.png --overwrite"
+  },
+  "dependencies": {
+    "@react-three/fiber": "8.15.19",
+    "@remotion/cli": "4.0.340",
+    "@remotion/three": "4.0.340",
+    "@sparticuz/chromium": "^153.0.0",
+    "oooh-i-see-it-now": "1.0.0",
+    "react": "18.3.1",
+    "react-dom": "18.3.1",
+    "remotion": "4.0.340",
+    "three": "0.160.0"
+  },
+  "devDependencies": {
+    "@types/react": "18.3.1",
+    "@types/three": "^0.187.0",
+    "typescript": "5.5.4"
+  }
+}

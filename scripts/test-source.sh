@@ -23,6 +23,7 @@ PACKAGE_LIST=config/package-lists/nrmaos.list.chroot
 grep -qx 'linux-image-amd64' "$PACKAGE_LIST" || fail "amd64 kernel package missing"
 grep -qx 'live-config-systemd' "$PACKAGE_LIST" || fail "systemd live-config backend missing"
 grep -q -- '--linux-packages none' auto/config || fail "legacy kernel auto-discovery must stay disabled"
+grep -q -- '--initsystem systemd' auto/config || fail "systemd init system must be selected explicitly"
 grep -qx 'qml6-module-qtqml-workerscript' "$PACKAGE_LIST" || fail "QtQml.WorkerScript runtime missing"
 grep -qx 'qml6-module-qtquick-templates' "$PACKAGE_LIST" || fail "QtQuick.Templates runtime missing"
 grep -q '/usr/bin/nrmaos-shell' config/hooks/live/050-nrmaos-setup.hook.chroot || fail "live session shell executable path mismatch"

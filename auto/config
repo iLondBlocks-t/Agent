@@ -9,6 +9,7 @@ lb config noauto \
     --architecture amd64 \
     --distribution stable \
     --linux-packages none \
+    --initsystem systemd \
     --archive-areas main \
     --binary-image iso-hybrid \
     --apt-recommends false \

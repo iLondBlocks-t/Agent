@@ -1103,12 +1103,19 @@ def cmd_selftest(args: argparse.Namespace) -> int:
                 f"--- guest diagnostics ---\n{collect_guest_diagnostics(guest)}"
             )
 
-        def xrdp_login_count() -> int:
-            res = guest.exec_cmd(["sh", "-c", "grep -ci 'login successful' /var/log/xrdp.log || true"])
+        def guest_log_count(pattern: str, log_path: str) -> int:
+            res = guest.exec_cmd(["grep", "-Eci", pattern, log_path])
             try:
                 return int((res.get("stdout") or "0").strip() or "0")
             except ValueError:
                 return 0
+
+        def xrdp_login_count() -> int:
+            # xrdp 0.10 logs "login was successful"; older releases log "login successful"
+            return guest_log_count("login (was )?successful", "/var/log/xrdp.log")
+
+        def sesman_reconnect_count() -> int:
+            return guest_log_count("reconnected session: username nrma", "/var/log/xrdp-sesman.log")
 
         # Connection #1: authenticate as `nrma` and require a remote xorgxrdp + nrmaos-shell session
         logins_before = xrdp_login_count()
@@ -1148,6 +1155,7 @@ def cmd_selftest(args: argparse.Namespace) -> int:
             )
 
         # Connection #2: must authenticate again AND attach to the same xorgxrdp session
+        reconnects_before = sesman_reconnect_count()
         c2 = launch_rdp_client()
         reconnected_ok = False
         t_end = time.monotonic() + 40.0
@@ -1158,6 +1166,7 @@ def cmd_selftest(args: argparse.Namespace) -> int:
                 len(sessions) == 1
                 and sessions[0]["pid"] == remote_pid_1
                 and xrdp_login_count() > logins_after_1
+                and sesman_reconnect_count() > reconnects_before
             ):
                 reconnected_ok = True
                 break
@@ -1168,7 +1177,8 @@ def cmd_selftest(args: argparse.Namespace) -> int:
         c2_out = stop_client(c2)
         if not reconnected_ok or not c2_alive:
             fail_with_diagnostics(
-                "Second FreeRDP connection failed to authenticate and reattach to the existing xorgxrdp session.",
+                "Second FreeRDP connection failed to authenticate and reattach to the existing xorgxrdp session "
+                f"(reattached={reconnected_ok}, client_alive={c2_alive}).",
                 c2_out,
             )
         print(f"Selftest: RDP reconnect OK (same xorgxrdp pid {remote_pid_1})", flush=True)

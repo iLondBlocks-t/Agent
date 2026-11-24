@@ -14,6 +14,8 @@ need_file auto/config
 need_file scripts/build-iso.sh
 need_file .github/workflows/build-iso.yml
 need_file config/package-lists/nrmaos.list.chroot
+need_file config/archives/nrmaos-security.list.chroot
+need_file config/archives/nrmaos-security.list.binary
 need_file shell/CMakeLists.txt
 need_file config/hooks/live/050-nrmaos-setup.hook.chroot
 
@@ -22,6 +24,8 @@ grep -qx 'linux-image-amd64' "$PACKAGE_LIST" || fail "amd64 kernel package missi
 grep -qx 'qml6-module-qtqml-workerscript' "$PACKAGE_LIST" || fail "QtQml.WorkerScript runtime missing"
 grep -qx 'qml6-module-qtquick-templates' "$PACKAGE_LIST" || fail "QtQuick.Templates runtime missing"
 grep -q '/usr/bin/nrmaos-shell' config/hooks/live/050-nrmaos-setup.hook.chroot || fail "live session shell executable path mismatch"
+grep -qx 'deb http://security.debian.org/debian-security stable-security main' config/archives/nrmaos-security.list.chroot || fail "Debian stable-security source missing"
+grep -qx 'deb http://security.debian.org/debian-security stable-security main' config/archives/nrmaos-security.list.binary || fail "runtime Debian stable-security source missing"
 
 if grep -RniE 'xrdp|xorgxrdp' config/package-lists 2>/dev/null; then
     fail "RDP packages must not be present in the first-milestone base image"

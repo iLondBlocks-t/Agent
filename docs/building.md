@@ -4,6 +4,8 @@
 
 The initial configuration targets an amd64/x86_64 Debian Live ISO hybrid image and follows the Debian `stable` suite alias. The exact package versions therefore follow the Debian stable repositories used at build time; builds made on different dates are not guaranteed to be bit-for-bit identical.
 
+Security updates remain enabled during package installation and in the resulting live session. The configuration avoids the legacy `stable/updates` entry emitted by older live-build packages and adds Debian's `stable-security` suite explicitly for both chroot and binary image in `config/archives/`.
+
 ## Prerequisites
 
 Use a Debian-based x86_64 build host with working network access, root/sudo privileges, and the Debian Live build tools. At minimum, install `live-build`, `debootstrap`, `xorriso`, `squashfs-tools`, `isolinux`, and `syslinux-common` from the host's configured Debian repositories. Keep several gigabytes of free disk space for package downloads, the chroot, and the generated image. The exact requirement depends on package mirrors and build caches.

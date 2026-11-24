@@ -47,6 +47,32 @@ class BootstrapError(RuntimeError):
     """Raised when a mandatory verification or security gate fails."""
 
 
+def gh_error(title: str, message: str) -> None:
+    """Emit a GitHub Actions error annotation (visible without raw log access)."""
+    if os.environ.get("GITHUB_ACTIONS") != "true":
+        return
+    esc = message[-12000:].replace("%", "%25").replace("\r", "%0D").replace("\n", "%0A")
+    esc_title = title.replace("%", "%25").replace("\n", " ").replace(",", "%2C").replace("::", ": ")
+    print(f"::error title={esc_title}::{esc}", flush=True)
+
+
+def collect_guest_diagnostics(guest: "QemuVirtioClient") -> str:
+    """Collect non-secret guest diagnostics (service state, xrdp logs, firewall) for failures."""
+    script = (
+        "echo '--- systemctl xrdp ---'; systemctl --no-pager --lines=0 status xrdp xrdp-sesman 2>&1 | head -n 20; "
+        "echo '--- ss -tln ---'; ss -tln 2>&1; "
+        "echo '--- ufw ---'; ufw status verbose 2>&1; "
+        "echo '--- xrdp.log ---'; tail -n 25 /var/log/xrdp.log 2>&1; "
+        "echo '--- xrdp-sesman.log ---'; tail -n 25 /var/log/xrdp-sesman.log 2>&1; "
+        "echo '--- journal xrdp ---'; journalctl --no-pager -n 20 -u xrdp -u xrdp-sesman 2>&1"
+    )
+    try:
+        res = guest.exec_cmd(["sh", "-c", script], timeout=20.0)
+        return (res.get("stdout", "") + res.get("stderr", ""))[-6000:]
+    except Exception as exc:  # pragma: no cover - diagnostics only
+        return f"(guest diagnostics unavailable: {exc})"
+
+
 class QemuVirtioClient:
     """Communicates with guest `/usr/lib/nrmaos/nrmaos-qa-agent.py` over a private UNIX socket."""
 
@@ -717,6 +743,14 @@ def boot_and_bootstrap_session(args: argparse.Namespace) -> tuple[dict, QemuVirt
                 raise BootstrapError(f"`nrma-rdpctl enable` failed: {en_res.get('stderr')}")
 
             rdp_status = json.loads(en_res["stdout"])
+            # xrdp may need a moment after `systemctl restart` before binding TCP 3389
+            for _ in range(40):
+                if rdp_status.get("active") and rdp_status.get("sesman_active") and rdp_status.get("listening"):
+                    break
+                time.sleep(0.75)
+                st_poll = guest.exec_cmd(["/usr/bin/nrma-rdpctl", "status", "--json"], timeout=20.0)
+                if st_poll.get("ok"):
+                    rdp_status = json.loads(st_poll["stdout"])
             if not (
                 rdp_status.get("active")
                 and rdp_status.get("sesman_active")
@@ -838,8 +872,22 @@ def boot_and_bootstrap_session(args: argparse.Namespace) -> tuple[dict, QemuVirt
             flush=True,
         )
         return meta, guest, qemu_proc.pid
-    except Exception:
+    except Exception as exc:
+        diag = ""
+        if qemu_proc.poll() is None:
+            diag = collect_guest_diagnostics(guest)
+        serial_tail = ""
+        try:
+            serial_tail = "\n".join(
+                serial_log.read_text(encoding="utf-8", errors="replace").splitlines()[-25:]
+            )
+        except Exception:
+            pass
         stop_qemu_pid(qemu_proc.pid)
+        if isinstance(exc, BootstrapError):
+            raise BootstrapError(
+                f"{exc}\n--- guest diagnostics ---\n{diag}\n--- serial tail ---\n{serial_tail}"
+            ) from exc
         raise
 
 
@@ -1037,51 +1085,93 @@ def cmd_selftest(args: argparse.Namespace) -> int:
                 text=True,
             )
 
-        # Connection #1
+        def stop_client(proc: subprocess.Popen) -> str:
+            proc.terminate()
+            try:
+                out, _ = proc.communicate(timeout=6)
+            except Exception:
+                proc.kill()
+                try:
+                    out, _ = proc.communicate(timeout=3)
+                except Exception:
+                    out = ""
+            return (out or "").replace(password, "********")[-2500:]
+
+        def fail_with_diagnostics(reason: str, client_out: str) -> None:
+            raise BootstrapError(
+                f"{reason}\n--- FreeRDP client output ---\n{client_out}\n"
+                f"--- guest diagnostics ---\n{collect_guest_diagnostics(guest)}"
+            )
+
+        def xrdp_login_count() -> int:
+            res = guest.exec_cmd(["sh", "-c", "grep -ci 'login successful' /var/log/xrdp.log || true"])
+            try:
+                return int((res.get("stdout") or "0").strip() or "0")
+            except ValueError:
+                return 0
+
+        # Connection #1: authenticate as `nrma` and require a remote xorgxrdp + nrmaos-shell session
+        logins_before = xrdp_login_count()
         c1 = launch_rdp_client()
         remote_pid_1 = None
-        try:
-            t_end = time.monotonic() + 30.0
-            while time.monotonic() < t_end:
-                st = json.loads(guest.exec_cmd(["/usr/bin/nrma-rdpctl", "status", "--json"])["stdout"])
-                sessions = st.get("connected_sessions") or []
-                shells = guest.exec_cmd(["pgrep", "-u", "nrma", "-x", "nrmaos-shell"])
-                shell_pids = [p.strip() for p in shells.get("stdout", "").splitlines() if p.strip()]
-                if sessions and len(shell_pids) >= 2:
-                    remote_pid_1 = sessions[0]["pid"]
-                    break
-                time.sleep(1.0)
-            if not remote_pid_1:
-                raise BootstrapError("First FreeRDP connection did not spawn remote xorgxrdp + nrmaos-shell session.")
-        finally:
-            c1.terminate()
-            try:
-                c1.wait(timeout=5)
-            except Exception:
-                c1.kill()
+        t_end = time.monotonic() + 45.0
+        while time.monotonic() < t_end:
+            st = json.loads(guest.exec_cmd(["/usr/bin/nrma-rdpctl", "status", "--json"])["stdout"])
+            sessions = [x for x in (st.get("connected_sessions") or []) if x.get("user") == "nrma"]
+            shells = guest.exec_cmd(["pgrep", "-u", "nrma", "-x", "nrmaos-shell"])
+            shell_pids = [p.strip() for p in shells.get("stdout", "").splitlines() if p.strip()]
+            if sessions and len(shell_pids) >= 2:
+                remote_pid_1 = sessions[0]["pid"]
+                break
+            if c1.poll() is not None:
+                break
+            time.sleep(1.0)
+        c1_out = stop_client(c1)
+        if not remote_pid_1:
+            fail_with_diagnostics(
+                "First FreeRDP connection did not spawn remote xorgxrdp + nrmaos-shell session.", c1_out
+            )
+        logins_after_1 = xrdp_login_count()
+        print(
+            f"Selftest: RDP login #1 OK (xorgxrdp pid {remote_pid_1}, xrdp login records {logins_before}->{logins_after_1})",
+            flush=True,
+        )
 
-        time.sleep(2.0)
+        time.sleep(3.0)
 
-        # Connection #2 (Verify session reconnection preserves the existing xorgxrdp PID!)
+        # Disconnected session must survive (KillDisconnected=false)
+        st_disc = json.loads(guest.exec_cmd(["/usr/bin/nrma-rdpctl", "status", "--json"])["stdout"])
+        surviving = [x["pid"] for x in (st_disc.get("connected_sessions") or []) if x.get("user") == "nrma"]
+        if surviving != [remote_pid_1]:
+            fail_with_diagnostics(
+                f"Disconnected session was not preserved (expected [{remote_pid_1}], got {surviving}).", c1_out
+            )
+
+        # Connection #2: must authenticate again AND attach to the same xorgxrdp session
         c2 = launch_rdp_client()
-        try:
-            reconnected_ok = False
-            t_end = time.monotonic() + 20.0
-            while time.monotonic() < t_end:
-                st = json.loads(guest.exec_cmd(["/usr/bin/nrma-rdpctl", "status", "--json"])["stdout"])
-                sessions = st.get("connected_sessions") or []
-                if len(sessions) == 1 and sessions[0]["pid"] == remote_pid_1:
-                    reconnected_ok = True
-                    break
-                time.sleep(1.0)
-            if not reconnected_ok:
-                raise BootstrapError("Second FreeRDP connection failed to reconnect to existing xorgxrdp session.")
-        finally:
-            c2.terminate()
-            try:
-                c2.wait(timeout=5)
-            except Exception:
-                c2.kill()
+        reconnected_ok = False
+        t_end = time.monotonic() + 40.0
+        while time.monotonic() < t_end:
+            st = json.loads(guest.exec_cmd(["/usr/bin/nrma-rdpctl", "status", "--json"])["stdout"])
+            sessions = [x for x in (st.get("connected_sessions") or []) if x.get("user") == "nrma"]
+            if (
+                len(sessions) == 1
+                and sessions[0]["pid"] == remote_pid_1
+                and xrdp_login_count() > logins_after_1
+            ):
+                reconnected_ok = True
+                break
+            if c2.poll() is not None:
+                break
+            time.sleep(1.0)
+        c2_alive = c2.poll() is None
+        c2_out = stop_client(c2)
+        if not reconnected_ok or not c2_alive:
+            fail_with_diagnostics(
+                "Second FreeRDP connection failed to authenticate and reattach to the existing xorgxrdp session.",
+                c2_out,
+            )
+        print(f"Selftest: RDP reconnect OK (same xorgxrdp pid {remote_pid_1})", flush=True)
 
         # Verify cleanup removes QEMU process and wipes state_dir
         cleanup_ns = argparse.Namespace(
@@ -1181,6 +1271,12 @@ def main() -> int:
             return cmd_selftest(args)
     except BootstrapError as exc:
         print(f"ERROR: {exc}", file=sys.stderr, flush=True)
+        gh_error(f"nrmaOS RDP {args.subcmd} failed", str(exc))
+        return 1
+    except Exception as exc:  # AssertionError, TimeoutError, CalledProcessError, ...
+        msg = f"{type(exc).__name__}: {exc}"
+        print(f"ERROR: {msg}", file=sys.stderr, flush=True)
+        gh_error(f"nrmaOS RDP {args.subcmd} failed", msg)
         return 1
     return 1
 

@@ -8,6 +8,7 @@ lb config noauto \
     --system live \
     --architecture amd64 \
     --distribution stable \
+    --linux-packages none \
     --archive-areas main \
     --binary-image iso-hybrid \
     --apt-recommends false \

@@ -10,7 +10,7 @@ fi
 export DEBIAN_FRONTEND=noninteractive
 apt-get update
 apt-get install -y --no-install-recommends \
-    cmake g++ pkg-config libx11-dev qt6-base-dev qt6-declarative-dev qt6-declarative-dev-tools
+    make cmake g++ pkg-config libx11-dev qt6-base-dev qt6-declarative-dev qt6-declarative-dev-tools
 
 cmake -S "$SOURCE_DIR/shell" -B /tmp/nrmaos-shell-build \
     -DCMAKE_BUILD_TYPE=Release \
@@ -82,6 +82,9 @@ fi
 
 # Purge build-only toolchains so the final SquashFS image stays small.
 apt-get purge -y --auto-remove \
-    cmake g++ pkg-config libx11-dev qt6-base-dev qt6-declarative-dev qt6-declarative-dev-tools
+    make cmake g++ pkg-config libx11-dev qt6-base-dev qt6-declarative-dev qt6-declarative-dev-tools
 rm -rf /tmp/nrmaos-shell-build /tmp/nrmaos-apps-build "$SOURCE_DIR" /var/lib/apt/lists/*
+
+# Verify QML engine + runtime dependencies still load cleanly after purging -dev packages!
+QT_QPA_PLATFORM=offscreen /usr/bin/nrmaos-shell --self-test
 unset DEBIAN_FRONTEND

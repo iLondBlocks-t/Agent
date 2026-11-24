@@ -6,23 +6,36 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_CXX_EXTENSIONS OFF)
 set(CMAKE_AUTOMOC ON)
 
-find_package(Qt6 6.2 REQUIRED COMPONENTS Core Gui Qml Quick QuickControls2)
+find_package(Qt6 6.2 REQUIRED COMPONENTS Core Gui Network Qml Quick QuickControls2)
+find_package(X11 REQUIRED)
 
 set(NRMAOS_QML_INSTALL_DIR "/usr/lib/nrmaos" CACHE PATH
     "Install directory for nrmaOS shell QML files")
 
 add_executable(nrmaos-shell
     src/main.cpp
+    src/SystemSettings.cpp
+    src/SystemSettings.h
+    src/WindowManagerBridge.cpp
+    src/WindowManagerBridge.h
     src/LauncherBridge.cpp
     src/LauncherBridge.h
+    src/SystemControlBridge.cpp
+    src/SystemControlBridge.h
+    src/NotificationCenter.cpp
+    src/NotificationCenter.h
+    src/ShellIpcServer.cpp
+    src/ShellIpcServer.h
 )
 
 target_link_libraries(nrmaos-shell PRIVATE
     Qt6::Core
     Qt6::Gui
+    Qt6::Network
     Qt6::Qml
     Qt6::Quick
     Qt6::QuickControls2
+    X11::X11
 )
 
 target_compile_definitions(nrmaos-shell PRIVATE

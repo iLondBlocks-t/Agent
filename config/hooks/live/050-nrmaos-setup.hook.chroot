@@ -87,4 +87,10 @@ rm -rf /tmp/nrmaos-shell-build /tmp/nrmaos-apps-build "$SOURCE_DIR" /var/lib/apt
 
 # Verify QML engine + runtime dependencies still load cleanly after purging -dev packages!
 QT_QPA_PLATFORM=offscreen /usr/bin/nrmaos-shell --self-test
+if [ -x /usr/bin/nrma-files ]; then
+    QT_QPA_PLATFORM=offscreen /usr/bin/nrma-files --self-test
+fi
+if [ -x /usr/bin/nrma-settings ]; then
+    QT_QPA_PLATFORM=offscreen /usr/bin/nrma-settings --self-test
+fi
 unset DEBIAN_FRONTEND

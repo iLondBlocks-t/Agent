@@ -1,0 +1,10 @@
+[Desktop Entry]
+Type=Action
+Name=Open with nrma Runtime
+Tooltip=Inspect, configure prefix, or run Windows executable in nrma Runtime
+Icon=nrmaos
+Profiles=profile-exe;
+
+[X-Action-Profile profile-exe]
+MimeTypes=application/x-ms-dos-executable;application/x-msdownload;application/x-msi;application/vnd.microsoft.portable-executable;
+Exec=/usr/bin/nrma-settings --page runtime --inspect %f

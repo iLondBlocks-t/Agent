@@ -59,10 +59,26 @@ bool ShellIpcServer::startListening()
     QDir().mkpath(ipcDir);
     ::chmod(ipcDir.toUtf8().constData(), 0700);
 
-    m_socketPath = ipcDir + QStringLiteral("/shell.sock");
+    QString disp = qEnvironmentVariable("DISPLAY", QStringLiteral(":0"));
+    if (disp.contains(QLatin1Char(':'))) {
+        disp = disp.section(QLatin1Char(':'), 1).section(QLatin1Char('.'), 0, 0);
+    } else {
+        disp = QStringLiteral("0");
+    }
+    if (disp.isEmpty()) {
+        disp = QStringLiteral("0");
+    }
+
+    m_socketPath = ipcDir + QStringLiteral("/shell-%1.sock").arg(disp);
     QLocalServer::removeServer(m_socketPath);
     m_server.setSocketOptions(QLocalServer::UserAccessOption);
-    return m_server.listen(m_socketPath);
+    const bool ok = m_server.listen(m_socketPath);
+    if (ok && disp == QStringLiteral("0")) {
+        const QString defaultLink = ipcDir + QStringLiteral("/shell.sock");
+        QFile::remove(defaultLink);
+        QFile::link(m_socketPath, defaultLink);
+    }
+    return ok;
 }
 
 QByteArray ShellIpcServer::handleCommand(const QByteArray &line)

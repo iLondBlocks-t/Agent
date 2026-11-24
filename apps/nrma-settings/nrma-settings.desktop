@@ -1,0 +1,8 @@
+[Desktop Entry]
+Type=Application
+Name=nrma Settings
+Comment=Configure Appearance, Wallpaper, Display, Remote Desktop, and nrma Runtime
+Exec=/usr/bin/nrma-settings
+Icon=nrmaos
+Terminal=false
+Categories=Settings;System;

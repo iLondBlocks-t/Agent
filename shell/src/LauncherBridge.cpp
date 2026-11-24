@@ -246,7 +246,7 @@ bool LauncherBridge::openApp(const QString &appId)
     QString resolved = QFileInfo(program).isAbsolute() ? program : QStandardPaths::findExecutable(program);
     QStringList args = spec.args;
 
-    if ((resolved.isEmpty() || !QFileInfo::isExecutable(resolved)) && !spec.fallbackProgram.isEmpty()) {
+    if ((resolved.isEmpty() || !QFileInfo(resolved).isExecutable()) && !spec.fallbackProgram.isEmpty()) {
         program = spec.fallbackProgram;
         resolved = QStandardPaths::findExecutable(program);
         args.clear();

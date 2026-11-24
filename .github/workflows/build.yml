@@ -9,6 +9,8 @@ on:
   pull_request:
     branches:
       - main
+  release:
+    types: [published]
 
 permissions:
   contents: read
@@ -16,6 +18,9 @@ permissions:
 concurrency:
   group: nrmaos-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
 
 defaults:
   run:
@@ -32,6 +37,36 @@ jobs:
       - name: Run static and unit tests
         run: ./scripts/test-source.sh
 
+      - name: Fast C++17 & Qt6/QML build and offscreen smoke check
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            make cmake g++ pkg-config libx11-dev \
+            qt6-base-dev qt6-declarative-dev qt6-declarative-dev-tools \
+            qml6-module-qtqml qml6-module-qtqml-models qml6-module-qtqml-workerscript \
+            qml6-module-qtquick qml6-module-qtquick-controls qml6-module-qtquick-templates \
+            qml6-module-qtquick-layouts qml6-module-qtquick-window qml6-module-qtquick-dialogs
+          set +e
+          (
+            set -e
+            cmake -S shell -B /tmp/ci-shell -DCMAKE_BUILD_TYPE=Release
+            cmake --build /tmp/ci-shell --parallel "$(nproc)"
+            ctest --test-dir /tmp/ci-shell --output-on-failure
+            QT_QPA_PLATFORM=offscreen /tmp/ci-shell/nrmaos-shell --self-test
+
+            cmake -S apps -B /tmp/ci-apps -DCMAKE_BUILD_TYPE=Release
+            cmake --build /tmp/ci-apps --parallel "$(nproc)"
+            QT_QPA_PLATFORM=offscreen /tmp/ci-apps/nrma-files --self-test
+            QT_QPA_PLATFORM=offscreen /tmp/ci-apps/nrma-settings --self-test
+          ) 2>&1 | tee /tmp/qt-smoke.log
+          rc=${PIPESTATUS[0]}
+          set -e
+          if [ "$rc" -ne 0 ]; then
+            msg=$(tail -n 60 /tmp/qt-smoke.log | sed 's/%/%25/g; s/\r/%0D/g' | awk '{printf "%s%%0A", $0}')
+            printf '::error title=Qt6 C++/QML Smoke Failure::%s\n' "$msg"
+            exit "$rc"
+          fi
+
       - name: Build nrmaOS Debian Live ISO
         run: ./scripts/build-iso.sh
 
@@ -40,19 +75,18 @@ jobs:
           source build/live-build.env
           iso="${NRMAOS_ISO_BASENAME}.iso"
           test -s "$iso"
-          sudo apt-get update
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
             xorriso \
             qemu-system-x86 \
             qemu-utils \
             xvfb \
-            freerdp3-x11 || \
+            freerdp2-x11 || \
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
             xorriso \
             qemu-system-x86 \
             qemu-utils \
             xvfb \
-            freerdp2-x11
+            freerdp3-x11
           xorriso -indev "$iso" -report_el_torito plain
           sha256sum -c "$iso.sha256"
 
@@ -65,11 +99,13 @@ jobs:
             echo "/dev/kvm not present; QEMU will fall back to TCG."
           fi
 
-      - name: Boot ISO in QEMU and run live integration & performance checks
+      - name: Boot ISO in QEMU and run live desktop, Runtime, RDP & performance checks
         run: |
           source build/live-build.env
           python3 tests/qemu_boot_test.py \
             --iso "${NRMAOS_ISO_BASENAME}.iso" \
+            --require-runtime \
+            --require-rdp \
             --report nrmaos-verification-report.json
 
       - name: Write GitHub Step Summary

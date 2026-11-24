@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<mime-info xmlns="http://www.freedesktop.org/standards/shared-mime-info">
+  <mime-type type="application/x-ms-dos-executable">
+    <comment>Windows Executable</comment>
+    <glob pattern="*.exe"/>
+    <glob pattern="*.EXE"/>
+  </mime-type>
+  <mime-type type="application/x-msi">
+    <comment>Windows Installer Package</comment>
+    <glob pattern="*.msi"/>
+    <glob pattern="*.MSI"/>
+  </mime-type>
+</mime-info>

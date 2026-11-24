@@ -15,6 +15,8 @@ openssl
 ufw
 nftables
 python3
+shared-mime-info
+desktop-file-utils
 
 # Xorg display server, input, Mesa acceleration, and software fallback
 xserver-xorg-core
@@ -29,6 +31,10 @@ libglx-mesa0
 libegl-mesa0
 mesa-utils
 
+# Integrated Remote Desktop server (strictly disabled by default in setup-rdp.sh)
+xrdp
+xorgxrdp
+
 # Window manager, compositor, display manager, session utilities, fonts
 openbox
 picom
@@ -36,7 +42,6 @@ lightdm
 lightdm-gtk-greeter
 dbus-x11
 xterm
-pcmanfm
 fonts-dejavu-core
 fonts-noto-core
 

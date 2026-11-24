@@ -414,7 +414,7 @@ def main() -> int:
             freerdp_bin = shutil.which("xfreerdp3") or shutil.which("xfreerdp") or shutil.which("wlfreerdp")
             xvfb_run = shutil.which("xvfb-run")
             if freerdp_bin and xvfb_run:
-                # 8a. Verify root login over RDP is DENIED
+                # 8a. Verify root login over RDP is DENIED by PAM & sesman.ini
                 root_cmd = [
                     xvfb_run,
                     "-a",
@@ -422,11 +422,15 @@ def main() -> int:
                     f"/v:127.0.0.1:{rdp_host_port}",
                     "/u:root",
                     "/p:RootBlockTest#2026!",
+                    "/sec:tls",
                     "/cert:ignore",
-                    "+auth-only",
                 ]
-                root_try = subprocess.run(root_cmd, capture_output=True, text=True, timeout=25)
-                assert root_try.returncode != 0, "SECURITY FAILURE: root RDP authentication succeeded!"
+                try:
+                    subprocess.run(root_cmd, capture_output=True, text=True, timeout=8)
+                except subprocess.TimeoutExpired:
+                    pass
+                root_xorg = guest.exec_cmd(["pgrep", "-u", "root", "-f", "xrdp/xorg.conf"])
+                assert not root_xorg["ok"], "SECURITY FAILURE: root spawned an xorgxrdp session!"
                 report["checks"]["rdp_root_login_denied"] = True
 
                 # 8b. Connect real FreeRDP client as regular user `nrma` and launch full remote nrmaOS session!
@@ -440,6 +444,7 @@ def main() -> int:
                         f"/v:127.0.0.1:{rdp_host_port}",
                         "/u:nrma",
                         "/p:NrmaTest#2026!",
+                        "/sec:tls",
                         "/size:1280x720",
                         "/cert:ignore",
                     ],

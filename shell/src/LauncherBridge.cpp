@@ -257,7 +257,7 @@ bool LauncherBridge::openApp(const QString &appId)
         return false;
     }
 
-    // Use a fixed executable and direct argument vector; never invoke /bin/sh.
+    // Use a fixed executable and direct argument vector; never invoke a command interpreter.
     const bool started = QProcess::startDetached(resolved, args);
     emit appLaunchResult(appId, started);
     return started;

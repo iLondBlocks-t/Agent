@@ -34,9 +34,24 @@ NRMAOS_CODENAME="Atlas"
 NRMAOS_BASE="Debian GNU/Linux stable"
 EOF
 
-# Configure LightDM to launch the nrmaOS session cleanly.
+# Ensure the live evaluation account `nrma` exists with appropriate desktop groups.
+if ! id nrma >/dev/null 2>&1; then
+    useradd --create-home --uid 1000 --shell /bin/bash nrma
+fi
+for grp in sudo audio video plugdev netdev; do
+    if getent group "$grp" >/dev/null 2>&1; then
+        usermod -aG "$grp" nrma || true
+    fi
+done
+install -d -m 0755 /etc/sudoers.d
+cat > /etc/sudoers.d/90-nrmaos-live <<'EOF'
+nrma ALL=(ALL) NOPASSWD: ALL
+EOF
+chmod 0440 /etc/sudoers.d/90-nrmaos-live
+
+# Configure LightDM (99-* sorts after live-config's generated drop-ins so nrmaos session wins).
 install -d -m 0755 /etc/lightdm/lightdm.conf.d
-cat > /etc/lightdm/lightdm.conf.d/50-nrmaos.conf <<'EOF'
+cat > /etc/lightdm/lightdm.conf.d/99-nrmaos.conf <<'EOF'
 [Seat:*]
 autologin-user=nrma
 autologin-user-timeout=0
@@ -64,7 +79,21 @@ fi
 # Enable firewall default policy (deny incoming, allow outgoing) without opening ports.
 if command -v ufw >/dev/null 2>&1; then
     sed -i 's/^ENABLED=no/ENABLED=yes/' /etc/ufw/ufw.conf || true
-    systemctl enable ufw.service >/dev/null 2>&1 || true
+    cat > /etc/systemd/system/nrmaos-firewall-init.service <<'EOF'
+[Unit]
+Description=Ensure nrmaOS UFW incoming-deny firewall is active at boot
+After=network-pre.target systemd-modules-load.service
+Before=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c '/usr/sbin/ufw status | grep -q "Status: active" || /usr/sbin/ufw --force enable'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    systemctl enable ufw.service nrmaos-firewall-init.service >/dev/null 2>&1 || true
 fi
 
 # Enable VirtIO QA watcher (activates ONLY if /dev/virtio-ports/org.nrmaos.qatest exists).

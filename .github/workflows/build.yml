@@ -80,13 +80,13 @@ jobs:
             qemu-system-x86 \
             qemu-utils \
             xvfb \
-            freerdp2-x11 || \
+            freerdp3-x11 || \
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
             xorriso \
             qemu-system-x86 \
             qemu-utils \
             xvfb \
-            freerdp3-x11
+            freerdp2-x11
           xorriso -indev "$iso" -report_el_torito plain
           sha256sum -c "$iso.sha256"
 

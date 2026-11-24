@@ -461,11 +461,19 @@ def main() -> int:
                             remote_shell_up = True
                             break
                         time.sleep(1.0)
-                    assert remote_shell_up, (
-                        f"Remote RDP connection did not spawn second nrmaos-shell instance.\n"
-                        f"sesman log:\n{guest.exec_cmd(['tail', '-n', '40', '/var/log/xrdp-sesman.log']).get('stdout', '')}\n"
-                        f"xrdp log:\n{guest.exec_cmd(['tail', '-n', '40', '/var/log/xrdp.log']).get('stdout', '')}"
-                    )
+                    if not remote_shell_up:
+                        rdp_client_proc.terminate()
+                        client_out = ""
+                        try:
+                            client_out, _ = rdp_client_proc.communicate(timeout=4)
+                        except Exception:
+                            pass
+                        raise AssertionError(
+                            f"Remote RDP connection did not spawn second nrmaos-shell instance.\n"
+                            f"FreeRDP client output:\n{client_out[-2500:]}\n"
+                            f"sesman log:\n{guest.exec_cmd(['tail', '-n', '40', '/var/log/xrdp-sesman.log']).get('stdout', '')}\n"
+                            f"xrdp log:\n{guest.exec_cmd(['tail', '-n', '40', '/var/log/xrdp.log']).get('stdout', '')}"
+                        )
                     report["benchmarks"]["rdp_session_startup_seconds"] = round(
                         time.monotonic() - t_rdp, 2
                     )

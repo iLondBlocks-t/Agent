@@ -1,22 +1,36 @@
 # Contributing to nrmaOS
 
-Thank you for helping build nrmaOS. The project is early-stage, so changes should be small, reviewable, and tested against the exact behavior they claim to provide.
+Thank you for contributing to **nrmaOS**. Every change must preserve our core engineering standards: lightweight footprint, original nrmaOS branding, real working controls, secure defaults, and verified test results.
 
-## Development principles
+## Core Engineering Rules
 
-- Keep the Debian base minimal and avoid adding a complete prebuilt desktop environment.
-- Separate the shell, system configuration, optional runtime, and remote-desktop components.
-- Do not add decorative controls that have no working behavior.
-- Keep RDP disabled by default and never introduce plaintext credentials or automatic public port forwarding.
-- Do not claim a build, boot, security, or performance result unless it was actually measured.
-- Preserve third-party notices and check redistribution terms for all packages and assets.
+1. **Original Desktop Shell**: Do not replace `nrmaos-shell` with a reskinned GNOME, KDE, XFCE, or LXQt desktop metapackage. Keep system integrations modular across `shell/`, `apps/`, `system/`, `runtime/`, and `remote-desktop/`.
+2. **No Decorative / Fake UI Controls**: Every button, slider, toggle, and menu action in QML must connect to real OS behavior (or clearly report when hardware such as an audio mixer is absent).
+3. **Remote Desktop Security Invariants**:
+   - `xrdp` and `xorgxrdp` must ship **disabled by default**.
+   - `root` and system accounts (`UID < 1000`) must remain blocked via PAM and `sesman.ini`.
+   - Never pass passwords via command-line arguments or persist plaintext passwords on disk.
+   - Never add UPnP / NAT-PMP automatic router port forwarding.
+4. **Optional Wine Footprint**: Keep Wine out of `config/package-lists/nrmaos.list.chroot` so the base ISO stays small; maintain opt-in installation through `nrma-runtime`.
+5. **Measured Claims Only**: Never invent performance benchmarks or claim compatibility that has not been measured in QEMU or on real hardware.
 
-## Changes and checks
+## Pre-Submission Checklist
 
-Before opening a pull request, run `./scripts/test-source.sh`. If you change the ISO build configuration, build it with `./scripts/build-iso.sh` on a supported Debian-based x86_64 host and attach the complete build log to the pull request. If the build succeeds, verify the ISO in QEMU and report the exact environment and result. A source-only test is not a substitute for a boot test.
+1. Run repository static and unit tests:
+   ```sh
+   ./scripts/test-source.sh
+   ```
+2. Compile and run offscreen QML self-tests when modifying `shell/` or `apps/`:
+   ```sh
+   cmake -S shell -B /tmp/shell-build && cmake --build /tmp/shell-build --parallel
+   QT_QPA_PLATFORM=offscreen /tmp/shell-build/nrmaos-shell --self-test
 
-Please describe the motivation, files changed, commands run, and any known limitations. Do not commit generated ISOs, credentials, signing keys, private tokens, or local build caches.
+   cmake -S apps -B /tmp/apps-build && cmake --build /tmp/apps-build --parallel
+   QT_QPA_PLATFORM=offscreen /tmp/apps-build/nrma-files --self-test
+   QT_QPA_PLATFORM=offscreen /tmp/apps-build/nrma-settings --self-test
+   ```
+3. Build the hybrid ISO (`./scripts/build-iso.sh`) or open a Pull Request so GitHub Actions builds the ISO and runs `tests/qemu_boot_test.py` end-to-end.
 
-## Licensing
+## License
 
-By contributing, you agree that your contributions to nrmaOS are distributed under the repository's MIT License, unless a different license is explicitly stated for a specific contribution. Third-party software keeps its own license.
+Contributions to original nrmaOS code and documentation are licensed under the [MIT License](LICENSE). Third-party packages included in built ISO images remain governed by their respective upstream open-source licenses.

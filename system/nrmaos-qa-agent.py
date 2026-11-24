@@ -7,6 +7,7 @@ only when /dev/virtio-ports/org.nrmaos.qatest is attached by the test runner.
 
 import json
 import os
+import pwd
 import subprocess
 import time
 
@@ -25,12 +26,17 @@ def handle_request(req: dict) -> dict:
             return {"id": req_id, "ok": False, "error": "cmd must be a non-empty list"}
         timeout = float(req.get("timeout", 30))
         env = os.environ.copy()
-        for k, v in (req.get("env") or {}).items():
-            env[str(k)] = str(v)
         user = req.get("user")
         run_cmd = cmd
         if user:
+            pw = pwd.getpwnam(str(user))
+            env["HOME"] = pw.pw_dir
+            env["USER"] = pw.pw_name
+            env["LOGNAME"] = pw.pw_name
+            env["XAUTHORITY"] = f"{pw.pw_dir}/.Xauthority"
             run_cmd = ["runuser", "-u", str(user), "--"] + cmd
+        for k, v in (req.get("env") or {}).items():
+            env[str(k)] = str(v)
         try:
             proc = subprocess.run(
                 run_cmd,

@@ -34,7 +34,7 @@ PACKAGE_LIST=config/package-lists/nrmaos.list.chroot
 grep -qx 'linux-image-amd64' "$PACKAGE_LIST" || fail "amd64 kernel package missing"
 grep -qx 'live-config-systemd' "$PACKAGE_LIST" || fail "systemd live-config backend missing"
 grep -qx 'libgl1-mesa-dri' "$PACKAGE_LIST" || fail "Mesa DRI acceleration/fallback missing"
-grep -q -- '--linux-packages none' auto/config || fail "legacy kernel auto-discovery must stay disabled"
+grep -q -- '--linux-packages "linux-image"' auto/config || fail "Debian live-build kernel copying (--linux-packages linux-image) must be enabled"
 grep -q -- '--initsystem systemd' auto/config || fail "systemd init system must be selected explicitly"
 grep -q -- '--debian-installer false' auto/config || fail "Debian Installer must be disabled with a supported value"
 grep -q -- '--security true' auto/config || fail "Debian security updates must stay enabled"

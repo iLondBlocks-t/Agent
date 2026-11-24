@@ -83,7 +83,7 @@ fi
 # Purge build-only toolchains so the final SquashFS image stays small.
 apt-get purge -y --auto-remove \
     make cmake g++ pkg-config libx11-dev qt6-base-dev qt6-declarative-dev qt6-declarative-dev-tools
-rm -rf /tmp/nrmaos-shell-build /tmp/nrmaos-apps-build "$SOURCE_DIR" /var/lib/apt/lists/*
+rm -rf /tmp/nrmaos-shell-build /tmp/nrmaos-apps-build "$SOURCE_DIR"
 
 # Verify QML engine + runtime dependencies still load cleanly after purging -dev packages!
 QT_QPA_PLATFORM=offscreen /usr/bin/nrmaos-shell --self-test

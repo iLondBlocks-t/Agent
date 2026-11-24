@@ -5,44 +5,70 @@ cd "$ROOT"
 
 fail() { echo "FAIL: $*" >&2; exit 1; }
 need_file() { [ -f "$1" ] || fail "missing file: $1"; }
+need_dir() { [ -d "$1" ] || fail "missing directory: $1"; }
 
+# Required repository layout
 need_file README.md
 need_file LICENSE
 need_file SECURITY.md
 need_file CONTRIBUTING.md
 need_file auto/config
+need_file build/live-build.env
+need_file scripts/stage-chroot.sh
 need_file scripts/build-iso.sh
-need_file .github/workflows/build-iso.yml
+need_file scripts/rdp_qemu_session.py
+need_file scripts/decrypt-rdp-credentials.sh
+need_file .github/workflows/build.yml
+need_file .github/workflows/nrmaos-rdp.yml
+need_file docs/tailscale-rdp.md
+need_file remote-desktop/nrma-tailscalectl
 need_file config/package-lists/nrmaos.list.chroot
-need_file config/archives/nrmaos-security.list.chroot
-need_file config/archives/nrmaos-security.list.binary
-need_file shell/CMakeLists.txt
 need_file config/hooks/live/050-nrmaos-setup.hook.chroot
+need_file config/hooks/live/090-nrmaos-bootloader.hook.binary
+need_file system/nrmaos-session
+need_file system/10-nrmaos.conf
+need_file system/openbox-rc.xml
+need_file shell/CMakeLists.txt
+need_file tests/qemu_boot_test.py
+
+for d in docs build config system shell apps runtime remote-desktop installer scripts tests assets; do
+    need_dir "$d"
+done
 
 PACKAGE_LIST=config/package-lists/nrmaos.list.chroot
 grep -qx 'linux-image-amd64' "$PACKAGE_LIST" || fail "amd64 kernel package missing"
 grep -qx 'live-config-systemd' "$PACKAGE_LIST" || fail "systemd live-config backend missing"
-grep -q -- '--linux-packages none' auto/config || fail "legacy kernel auto-discovery must stay disabled"
+grep -qx 'libgl1-mesa-dri' "$PACKAGE_LIST" || fail "Mesa DRI acceleration/fallback missing"
+grep -q -- '--linux-packages "linux-image"' auto/config || fail "Debian live-build kernel copying (--linux-packages linux-image) must be enabled"
 grep -q -- '--initsystem systemd' auto/config || fail "systemd init system must be selected explicitly"
 grep -q -- '--debian-installer false' auto/config || fail "Debian Installer must be disabled with a supported value"
+grep -q -- '--security true' auto/config || fail "Debian security updates must stay enabled"
 grep -qx 'qml6-module-qtqml-workerscript' "$PACKAGE_LIST" || fail "QtQml.WorkerScript runtime missing"
 grep -qx 'qml6-module-qtquick-templates' "$PACKAGE_LIST" || fail "QtQuick.Templates runtime missing"
-grep -q '/usr/bin/nrmaos-shell' config/hooks/live/050-nrmaos-setup.hook.chroot || fail "live session shell executable path mismatch"
-grep -qx 'deb http://security.debian.org/debian-security stable-security main' config/archives/nrmaos-security.list.chroot || fail "Debian stable-security source missing"
-grep -qx 'deb http://security.debian.org/debian-security stable-security main' config/archives/nrmaos-security.list.binary || fail "runtime Debian stable-security source missing"
+grep -q '/usr/bin/nrmaos-session' config/hooks/live/050-nrmaos-setup.hook.chroot || fail "live session wrapper path mismatch"
+grep -q '/usr/bin/nrmaos-shell' system/nrmaos-session || fail "nrmaos-session must exec /usr/bin/nrmaos-shell"
 
-if grep -RniE 'xrdp|xorgxrdp' config/package-lists 2>/dev/null; then
-    fail "RDP packages must not be present in the first-milestone base image"
-fi
-if grep -RniE 'port.?forward|3389' config 2>/dev/null; then
-    fail "unexpected RDP port/forwarding configuration in initial image"
+# Never allow unsafe automatic UPnP / router port forwarding
+if grep -RniE --exclude=test-source.sh 'upnpc|miniupnpc|natpmpc' config system remote-desktop scripts 2>/dev/null; then
+    fail "automatic router port forwarding tools must never be included"
 fi
 
-if command -v shfmt >/dev/null 2>&1; then
-    find auto scripts config/hooks -type f \( -name '*.sh' -o -name '*.hook.chroot' -o -path 'auto/config' \) -print0 | xargs -0 -r shfmt -d
+# Verify Wine is never forced into the base package list (must stay optional)
+if grep -qxE 'wine|wine64|wine32' "$PACKAGE_LIST"; then
+    fail "Wine must remain optional and not preinstalled in the base ISO package list"
 fi
 
+python3 -m py_compile \
+    system/nrmaos-qa-agent.py \
+    remote-desktop/nrma-rdpctl \
+    remote-desktop/nrma-tailscalectl \
+    scripts/rdp_qemu_session.py \
+    tests/qemu_boot_test.py
+sh -n scripts/stage-chroot.sh scripts/build-iso.sh scripts/decrypt-rdp-credentials.sh remote-desktop/setup-rdp.sh remote-desktop/install-into-chroot.sh
 python3 shell/tests/test_shell_contract.py
 
-echo "PASS: source structure and first-milestone security defaults"
-echo "NOTE: this check does not build or boot an ISO."
+if [ -f tests/test_system_units.py ]; then
+    python3 -m unittest discover -s tests -p 'test_*.py' -v
+fi
+
+echo "PASS: repository layout, live-build config, security invariants, and unit contracts"

@@ -1,0 +1,11 @@
+[Desktop Entry]
+Type=Application
+Name=nrma Runtime
+Comment=Open or inspect Windows .exe applications with nrma Runtime
+Exec=/usr/bin/nrma-settings --page runtime --inspect %f
+TryExec=/usr/bin/nrma-runtime
+Icon=nrmaos
+Terminal=false
+MimeType=application/x-ms-dos-executable;application/x-msdownload;application/x-msi;application/vnd.microsoft.portable-executable;
+Categories=System;Utility;
+NoDisplay=false

@@ -2,33 +2,71 @@
 set -eu
 
 SOURCE_DIR=/usr/src/nrmaos
-if [ ! -f "$SOURCE_DIR/CMakeLists.txt" ]; then
-    echo "nrmaOS shell source is missing at $SOURCE_DIR" >&2
+if [ ! -f "$SOURCE_DIR/shell/CMakeLists.txt" ]; then
+    echo "nrmaOS shell source is missing at $SOURCE_DIR/shell" >&2
     exit 1
 fi
 
 export DEBIAN_FRONTEND=noninteractive
+. /etc/os-release
+TS_CODENAME="${VERSION_CODENAME:-trixie}"
+install -d -m 0755 /usr/share/keyrings /etc/apt/sources.list.d
+curl -fsSL --retry 3 "https://pkgs.tailscale.com/stable/debian/${TS_CODENAME}.noarmor.gpg" \
+    -o /usr/share/keyrings/tailscale-archive-keyring.gpg
+chmod 0644 /usr/share/keyrings/tailscale-archive-keyring.gpg
+curl -fsSL --retry 3 "https://pkgs.tailscale.com/stable/debian/${TS_CODENAME}.tailscale-keyring.list" \
+    -o /etc/apt/sources.list.d/tailscale.list
+chmod 0644 /etc/apt/sources.list.d/tailscale.list
+
 apt-get update
 apt-get install -y --no-install-recommends \
-    cmake g++ qt6-base-dev qt6-declarative-dev qt6-declarative-dev-tools
+    tailscale tailscale-archive-keyring \
+    make cmake g++ pkg-config libx11-dev qt6-base-dev qt6-declarative-dev qt6-declarative-dev-tools
 
-cmake -S "$SOURCE_DIR" -B /tmp/nrmaos-build \
+cmake -S "$SOURCE_DIR/shell" -B /tmp/nrmaos-shell-build \
     -DCMAKE_BUILD_TYPE=Release \
     -DCMAKE_INSTALL_PREFIX=/usr
-cmake --build /tmp/nrmaos-build --parallel "$(nproc)"
-DESTDIR=/ cmake --install /tmp/nrmaos-build
+cmake --build /tmp/nrmaos-shell-build --parallel "$(nproc)"
+DESTDIR=/ cmake --install /tmp/nrmaos-shell-build
 
-# This account is intentionally for the disposable local live session only.
-if ! id nrma >/dev/null 2>&1; then
-    useradd --create-home --shell /bin/bash nrma
+if [ -f "$SOURCE_DIR/apps/CMakeLists.txt" ]; then
+    cmake -S "$SOURCE_DIR/apps" -B /tmp/nrmaos-apps-build \
+        -DCMAKE_BUILD_TYPE=Release \
+        -DCMAKE_INSTALL_PREFIX=/usr
+    cmake --build /tmp/nrmaos-apps-build --parallel "$(nproc)"
+    DESTDIR=/ cmake --install /tmp/nrmaos-apps-build
 fi
-passwd --lock nrma
 
+# Install nrmaOS release identification while keeping /etc/debian_version intact for package tools.
+cat > /etc/nrmaos-release <<'EOF'
+NRMAOS_NAME="nrmaOS"
+NRMAOS_VERSION="0.1.0"
+NRMAOS_CODENAME="Atlas"
+NRMAOS_BASE="Debian GNU/Linux stable"
+EOF
+
+# Ensure the live evaluation account `nrma` exists with appropriate desktop groups.
+if ! id nrma >/dev/null 2>&1; then
+    useradd --create-home --uid 1000 --shell /bin/bash nrma
+fi
+for grp in sudo audio video plugdev netdev; do
+    if getent group "$grp" >/dev/null 2>&1; then
+        usermod -aG "$grp" nrma || true
+    fi
+done
+install -d -m 0755 /etc/sudoers.d
+cat > /etc/sudoers.d/90-nrmaos-live <<'EOF'
+nrma ALL=(ALL) NOPASSWD: ALL
+EOF
+chmod 0440 /etc/sudoers.d/90-nrmaos-live
+
+# Configure LightDM (99-* sorts after live-config's generated drop-ins so nrmaos session wins).
 install -d -m 0755 /etc/lightdm/lightdm.conf.d
-cat > /etc/lightdm/lightdm.conf.d/50-nrmaos-autologin.conf <<'EOF'
+cat > /etc/lightdm/lightdm.conf.d/99-nrmaos.conf <<'EOF'
 [Seat:*]
 autologin-user=nrma
 autologin-user-timeout=0
+autologin-session=nrmaos
 user-session=nrmaos
 greeter-session=lightdm-gtk-greeter
 EOF
@@ -37,23 +75,70 @@ install -d -m 0755 /usr/share/xsessions
 cat > /usr/share/xsessions/nrmaos.desktop <<'EOF'
 [Desktop Entry]
 Name=nrmaOS
-Comment=nrmaOS live desktop session
-Exec=openbox-session
+Comment=nrmaOS Desktop Environment
+Exec=/usr/bin/nrmaos-session
+TryExec=/usr/bin/nrmaos-session
 Type=Application
 DesktopNames=nrmaOS
 EOF
 
-install -d -o nrma -g nrma -m 0750 /home/nrma/.config/openbox
-cat > /home/nrma/.config/openbox/autostart <<'EOF'
-#!/bin/sh
-xsetroot -solid '#111827'
-/usr/bin/nrmaos-shell >/home/nrma/nrma-shell.log 2>&1 &
-EOF
-chown nrma:nrma /home/nrma/.config/openbox/autostart
-chmod 0750 /home/nrma/.config/openbox/autostart
+if [ -x /usr/bin/nrmaos-session ]; then
+    update-alternatives --install /usr/bin/x-session-manager x-session-manager /usr/bin/nrmaos-session 90
+    update-alternatives --set x-session-manager /usr/bin/nrmaos-session
+fi
 
-# Remove temporary compiler tooling and caches. Runtime libraries remain through
-# the explicitly installed Qt/QML packages in the live-build package list.
-apt-get purge -y --auto-remove cmake g++ qt6-base-dev qt6-declarative-dev qt6-declarative-dev-tools
-rm -rf /tmp/nrmaos-build "$SOURCE_DIR" /var/lib/apt/lists/*
+# Enable firewall default policy (deny incoming, allow outgoing) without opening ports.
+if command -v ufw >/dev/null 2>&1; then
+    sed -i 's/^ENABLED=no/ENABLED=yes/' /etc/ufw/ufw.conf || true
+    cat > /etc/systemd/system/nrmaos-firewall-init.service <<'EOF'
+[Unit]
+Description=Ensure nrmaOS UFW incoming-deny firewall is active at boot
+After=network-pre.target systemd-modules-load.service
+Before=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/sh -c '/usr/sbin/ufw status | grep -q "Status: active" || /usr/sbin/ufw --force enable'
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+EOF
+    systemctl enable ufw.service nrmaos-firewall-init.service >/dev/null 2>&1 || true
+fi
+
+# Enable VirtIO QA watcher (activates ONLY if /dev/virtio-ports/org.nrmaos.qatest exists).
+if [ -f /etc/systemd/system/nrmaos-qa-agent.path ]; then
+    systemctl enable nrmaos-qa-agent.path >/dev/null 2>&1 || true
+fi
+
+# Run optional component setup scripts staged from repository modules.
+if [ -x /usr/lib/nrmaos/setup-rdp.sh ]; then
+    /usr/lib/nrmaos/setup-rdp.sh
+fi
+if [ -x /usr/lib/nrmaos/setup-runtime.sh ]; then
+    /usr/lib/nrmaos/setup-runtime.sh
+fi
+
+# Keep native Tailscale disconnected and disabled by default, with zero node keys/state in the ISO.
+command -v tailscale >/dev/null 2>&1
+command -v tailscaled >/dev/null 2>&1 || [ -x /usr/sbin/tailscaled ]
+systemctl stop tailscaled.service >/dev/null 2>&1 || true
+systemctl disable tailscaled.service >/dev/null 2>&1 || true
+rm -f /etc/systemd/system/multi-user.target.wants/tailscaled.service
+rm -rf /var/lib/tailscale/* /etc/default/tailscaled.authkey 2>/dev/null || true
+
+# Purge build-only toolchains so the final SquashFS image stays small.
+apt-get purge -y --auto-remove \
+    make cmake g++ pkg-config libx11-dev qt6-base-dev qt6-declarative-dev qt6-declarative-dev-tools
+rm -rf /tmp/nrmaos-shell-build /tmp/nrmaos-apps-build "$SOURCE_DIR"
+
+# Verify QML engine + runtime dependencies still load cleanly after purging -dev packages!
+QT_QPA_PLATFORM=offscreen /usr/bin/nrmaos-shell --self-test
+if [ -x /usr/bin/nrma-files ]; then
+    QT_QPA_PLATFORM=offscreen /usr/bin/nrma-files --self-test
+fi
+if [ -x /usr/bin/nrma-settings ]; then
+    QT_QPA_PLATFORM=offscreen /usr/bin/nrma-settings --self-test
+fi
 unset DEBIAN_FRONTEND

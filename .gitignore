@@ -1,17 +1,36 @@
 # live-build output and local chroot state
 binary/
+chroot/
+cache/
+.build/
 .chroot/
 .chroot.cache/
+config/common
+config/bootstrap
+config/chroot
+config/binary
+config/source
+config/includes.chroot/etc/
+config/includes.chroot/usr/bin/
+config/includes.chroot/usr/lib/
+config/includes.chroot/usr/share/
+config/includes.chroot/usr/src/nrmaos/*
+!config/includes.chroot/usr/src/nrmaos/.gitkeep
 *.iso
 *.hybrid.iso
 *.sha256
 build.log
 live-build.log
+qemu-serial.log
+nrmaos-verification-report.json
 
-# CMake build output
+# CMake / Python build output
 shell/build/
+apps/build/
 CMakeFiles/
 CMakeCache.txt
+__pycache__/
+*.pyc
 
 # Editor and OS files
 .DS_Store

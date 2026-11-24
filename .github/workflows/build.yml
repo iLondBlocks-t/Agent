@@ -1,0 +1,175 @@
+name: Build and Verify nrmaOS ISO
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - "arena/**"
+    tags:
+      - "v*"
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+concurrency:
+  group: nrmaos-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Run static and unit tests
+        run: ./scripts/test-source.sh
+
+      - name: Lint GitHub Actions workflows (actionlint)
+        run: |
+          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.7/scripts/download-actionlint.bash) 1.7.7 "$RUNNER_TEMP"
+          "$RUNNER_TEMP/actionlint" -color -shellcheck= -pyflakes= .github/workflows/build.yml .github/workflows/nrmaos-rdp.yml
+
+      - name: Fast C++17 & Qt6/QML build and offscreen smoke check
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            make cmake g++ pkg-config libx11-dev \
+            qt6-base-dev qt6-declarative-dev qt6-declarative-dev-tools \
+            qml6-module-qtqml qml6-module-qtqml-models qml6-module-qtqml-workerscript \
+            qml6-module-qtquick qml6-module-qtquick-controls qml6-module-qtquick-templates \
+            qml6-module-qtquick-layouts qml6-module-qtquick-window qml6-module-qtquick-dialogs
+          set +e
+          (
+            set -e
+            cmake -S shell -B /tmp/ci-shell -DCMAKE_BUILD_TYPE=Release
+            cmake --build /tmp/ci-shell --parallel "$(nproc)"
+            ctest --test-dir /tmp/ci-shell --output-on-failure
+            QT_QPA_PLATFORM=offscreen /tmp/ci-shell/nrmaos-shell --self-test
+
+            cmake -S apps -B /tmp/ci-apps -DCMAKE_BUILD_TYPE=Release
+            cmake --build /tmp/ci-apps --parallel "$(nproc)"
+            QT_QPA_PLATFORM=offscreen /tmp/ci-apps/nrma-files --self-test
+            QT_QPA_PLATFORM=offscreen /tmp/ci-apps/nrma-settings --self-test
+          ) 2>&1 | tee /tmp/qt-smoke.log
+          rc=${PIPESTATUS[0]}
+          set -e
+          if [ "$rc" -ne 0 ]; then
+            msg=$(tail -n 60 /tmp/qt-smoke.log | sed 's/%/%25/g; s/\r/%0D/g' | awk '{printf "%s%%0A", $0}')
+            printf '::error title=Qt6 C++/QML Smoke Failure::%s\n' "$msg"
+            exit "$rc"
+          fi
+
+      - name: Build nrmaOS Debian Live ISO
+        run: ./scripts/build-iso.sh
+
+      - name: Verify ISO structure and SHA256 checksums
+        run: |
+          source build/live-build.env
+          iso="${NRMAOS_ISO_BASENAME}.iso"
+          test -s "$iso"
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            age \
+            unzip \
+            xorriso \
+            qemu-system-x86 \
+            qemu-utils \
+            xvfb \
+            freerdp3-x11 || \
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            age \
+            unzip \
+            xorriso \
+            qemu-system-x86 \
+            qemu-utils \
+            xvfb \
+            freerdp2-x11
+          xorriso -indev "$iso" -report_el_torito plain
+          sha256sum -c "$iso.sha256"
+
+      - name: Enable KVM permissions when available on runner
+        run: |
+          if [ -e /dev/kvm ]; then
+            sudo chmod 0666 /dev/kvm || true
+            ls -l /dev/kvm
+          else
+            echo "/dev/kvm not present; QEMU will fall back to TCG."
+          fi
+
+      - name: Boot ISO in QEMU and run live desktop, Runtime, RDP & performance checks
+        run: |
+          source build/live-build.env
+          python3 tests/qemu_boot_test.py \
+            --iso "${NRMAOS_ISO_BASENAME}.iso" \
+            --require-runtime \
+            --require-rdp \
+            --report nrmaos-verification-report.json
+
+      - name: Verify headless QEMU RDP bootstrap, age encryption, session reconnect & cleanup
+        run: |
+          source build/live-build.env
+          python3 scripts/rdp_qemu_session.py selftest \
+            --iso "${NRMAOS_ISO_BASENAME}.iso" \
+            --host-port 13390
+
+      - name: Write GitHub Step Summary
+        if: always()
+        run: |
+          if [ -f nrmaos-verification-report.json ]; then
+            {
+              echo "## nrmaOS Build & QEMU Verification Report"
+              echo '```json'
+              cat nrmaos-verification-report.json
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload ISO, SHA256 checksum, and QEMU verification report
+        uses: actions/upload-artifact@v4
+        with:
+          name: nrmaos-amd64-live-iso
+          path: |
+            nrmaos-*.iso
+            nrmaos-*.iso.sha256
+            nrmaos-verification-report.json
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14
+
+  publish-release:
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: build-and-test
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Download verified ISO artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: nrmaos-amd64-live-iso
+
+      - name: Publish GitHub Release with ISO and SHA-256 checksum
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "${GITHUB_REF_NAME}" \
+            nrmaos-*.iso \
+            nrmaos-*.iso.sha256 \
+            nrmaos-verification-report.json \
+            --title "nrmaOS ${GITHUB_REF_NAME}" \
+            --notes-file RELEASE_NOTES.md

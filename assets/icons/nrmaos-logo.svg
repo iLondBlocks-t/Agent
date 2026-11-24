@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128" width="128" height="128">
+  <defs>
+    <linearGradient id="nrmaGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#6E9BFF"/>
+      <stop offset="55%" stop-color="#4A72F5"/>
+      <stop offset="100%" stop-color="#2D4EC9"/>
+    </linearGradient>
+    <linearGradient id="nrmaGlow" x1="0%" y1="100%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#8FD3FF" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="1.0"/>
+    </linearGradient>
+  </defs>
+  <rect x="8" y="8" width="112" height="112" rx="30" fill="url(#nrmaGrad)"/>
+  <rect x="10" y="10" width="108" height="108" rx="28" fill="none" stroke="#FFFFFF" stroke-opacity="0.22" stroke-width="2"/>
+  <path d="M38 88V44c0-3.3 2.7-6 6-6h5.5c2.4 0 4.6 1.4 5.5 3.6L73 74V44c0-3.3 2.7-6 6-6h5c3.3 0 6 2.7 6 6v44c0 3.3-2.7 6-6 6h-5.5c-2.4 0-4.6-1.4-5.5-3.6L55 58v30c0 3.3-2.7 6-6 6h-5c-3.3 0-6-2.7-6-6z" fill="url(#nrmaGlow)"/>
+</svg>

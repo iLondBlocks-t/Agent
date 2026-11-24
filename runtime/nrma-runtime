@@ -1,0 +1,469 @@
+#!/usr/bin/env python3
+"""nrma Runtime — Optional Wine compatibility manager, PE inspector, prefix isolator, and shortcut creator.
+
+Base nrmaOS intentionally omits Wine so the live and installed footprint stays small.
+Users can inspect .exe binaries, manage isolated prefixes, install the Wine engine on
+demand from Debian repositories, run Windows executables, and register launcher shortcuts.
+"""
+
+from __future__ import annotations
+
+import argparse
+from datetime import datetime, timezone
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import struct
+import subprocess
+import sys
+
+COMPATIBILITY_NOTICE = (
+    "nrma Runtime uses Wine as an optional translation layer. Compatibility varies by "
+    "application: standard Win32/Win64 desktop utilities often work well, whereas "
+    "kernel-mode drivers, anti-cheat engines, UWP/MSIX packages, and DRM-protected "
+    "software may not run."
+)
+
+MACHINE_MAP = {
+    0x014C: "x86 (32-bit)",
+    0x8664: "x86_64",
+    0xAA64: "ARM64",
+}
+
+SUBSYSTEM_MAP = {
+    1: "Native / Kernel Driver",
+    2: "Windows GUI",
+    3: "Windows Console",
+    7: "POSIX Console",
+    9: "Windows CE GUI",
+    10: "EFI Application",
+}
+
+
+def runtime_root() -> Path:
+    xdg = os.environ.get("XDG_DATA_HOME")
+    base = Path(xdg) if xdg else (Path.home() / ".local" / "share")
+    return base / "nrma-runtime"
+
+
+def prefixes_dir() -> Path:
+    return runtime_root() / "prefixes"
+
+
+def applications_dir() -> Path:
+    xdg = os.environ.get("XDG_DATA_HOME")
+    base = Path(xdg) if xdg else (Path.home() / ".local" / "share")
+    return base / "applications"
+
+
+def slugify(text: str) -> str:
+    cleaned = re.sub(r"[^a-zA-Z0-9_-]+", "-", text.strip().lower()).strip("-")
+    return cleaned or "default"
+
+
+def detect_wine() -> dict:
+    wine_bin = shutil.which("wine") or shutil.which("wine64")
+    wineserver_bin = shutil.which("wineserver")
+    version = None
+    if wine_bin:
+        try:
+            proc = subprocess.run(
+                [wine_bin, "--version"],
+                capture_output=True,
+                text=True,
+                timeout=4,
+            )
+            if proc.returncode == 0:
+                version = proc.stdout.strip().splitlines()[0]
+        except Exception:
+            version = "installed"
+
+    foreign_archs: list[str] = []
+    dpkg_bin = shutil.which("dpkg")
+    if dpkg_bin:
+        try:
+            proc = subprocess.run(
+                [dpkg_bin, "--print-foreign-architectures"],
+                capture_output=True,
+                text=True,
+                timeout=3,
+            )
+            if proc.returncode == 0:
+                foreign_archs = [ln.strip() for ln in proc.stdout.splitlines() if ln.strip()]
+        except Exception:
+            pass
+
+    pfx_list = list_prefixes_data()
+    return {
+        "wine_installed": bool(wine_bin),
+        "wine_binary": wine_bin or "",
+        "wineserver_binary": wineserver_bin or "",
+        "wine_version": version or "Not installed (optional)",
+        "i386_multiarch_enabled": "i386" in foreign_archs,
+        "prefixes_root": str(prefixes_dir()),
+        "prefix_count": len(pfx_list),
+        "prefixes": pfx_list,
+        "compatibility_notice": COMPATIBILITY_NOTICE,
+    }
+
+
+def list_prefixes_data() -> list[dict]:
+    root = prefixes_dir()
+    if not root.exists():
+        return []
+    result = []
+    for entry in sorted(root.iterdir()):
+        if not entry.is_dir():
+            continue
+        meta_file = entry / "nrma-prefix.json"
+        meta = {
+            "name": entry.name,
+            "path": str(entry),
+            "arch": "win64",
+            "created_at": "",
+        }
+        if meta_file.is_file():
+            try:
+                loaded = json.loads(meta_file.read_text(encoding="utf-8"))
+                meta.update(loaded)
+                meta["path"] = str(entry)
+            except Exception:
+                pass
+        result.append(meta)
+    return result
+
+
+def create_prefix(name: str, arch: str = "win64") -> dict:
+    slug = slugify(name)
+    if arch not in ("win64", "win32"):
+        raise ValueError("arch must be win64 or win32")
+    target = prefixes_dir() / slug
+    (target / "drive_c").mkdir(parents=True, exist_ok=True)
+    meta = {
+        "name": slug,
+        "display_name": name.strip() or slug,
+        "arch": arch,
+        "path": str(target),
+        "created_at": datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+    }
+    (target / "nrma-prefix.json").write_text(json.dumps(meta, indent=2) + "\n", encoding="utf-8")
+    return meta
+
+
+def remove_prefix(name: str) -> bool:
+    slug = slugify(name)
+    target = prefixes_dir() / slug
+    if not target.exists():
+        return False
+    shutil.rmtree(target)
+    return True
+
+
+def inspect_pe_executable(exe_path: Path) -> dict:
+    info: dict = {
+        "path": str(exe_path.resolve()),
+        "filename": exe_path.name,
+        "exists": exe_path.is_file(),
+        "size_bytes": exe_path.stat().st_size if exe_path.is_file() else 0,
+        "valid_pe": False,
+        "architecture": "Unknown",
+        "pe_format": "Unknown",
+        "subsystem": "Unknown",
+        "dotnet_clr": False,
+        "compatibility_tier": "unknown",
+        "notes": [],
+        "disclaimer": COMPATIBILITY_NOTICE,
+    }
+    if not exe_path.is_file():
+        info["notes"].append("File does not exist.")
+        return info
+
+    with exe_path.open("rb") as f:
+        header = f.read(4096)
+
+    if len(header) < 64 or header[0:2] != b"MZ":
+        if exe_path.suffix.lower() == ".msi":
+            info["pe_format"] = "MSI Installer Package"
+            info["subsystem"] = "Windows Installer (msiexec)"
+            info["compatibility_tier"] = "supported-via-msiexec"
+            info["notes"].append("Windows Installer package; runs via 'wine msiexec /i' when Wine is installed.")
+        else:
+            info["notes"].append("Not a valid DOS/PE executable (missing MZ signature).")
+        return info
+
+    e_lfanew = struct.unpack_from("<I", header, 0x3C)[0]
+    if e_lfanew + 24 > len(header):
+        with exe_path.open("rb") as f:
+            f.seek(e_lfanew)
+            pe_block = f.read(512)
+    else:
+        pe_block = header[e_lfanew : e_lfanew + 512]
+
+    if len(pe_block) < 24 or pe_block[0:4] != b"PE\x00\x00":
+        info["notes"].append("MZ stub present without PE32/PE32+ header (legacy 16-bit DOS/NE binary).")
+        info["compatibility_tier"] = "legacy"
+        return info
+
+    machine, _num_sections, _ts, _sym_ptr, _num_sym, opt_size, _chars = struct.unpack_from(
+        "<HHIIIHH", pe_block, 4
+    )
+    info["valid_pe"] = True
+    info["architecture"] = MACHINE_MAP.get(machine, f"0x{machine:04x}")
+
+    opt = pe_block[24 : 24 + opt_size]
+    if len(opt) >= 70:
+        magic = struct.unpack_from("<H", opt, 0)[0]
+        if magic == 0x010B:
+            info["pe_format"] = "PE32 (32-bit)"
+            subsystem = struct.unpack_from("<H", opt, 68)[0]
+            clr_offset = 208
+        elif magic == 0x020B:
+            info["pe_format"] = "PE32+ (64-bit)"
+            subsystem = struct.unpack_from("<H", opt, 68)[0]
+            clr_offset = 224
+        else:
+            subsystem = 0
+            clr_offset = 0
+
+        info["subsystem"] = SUBSYSTEM_MAP.get(subsystem, f"Subsystem {subsystem}")
+        if clr_offset and len(opt) >= clr_offset + 8:
+            clr_rva, clr_size = struct.unpack_from("<II", opt, clr_offset)
+            info["dotnet_clr"] = bool(clr_rva and clr_size)
+
+        if subsystem == 1:
+            info["compatibility_tier"] = "unsupported-driver"
+            info["notes"].append(
+                "Kernel-mode Windows drivers and kernel anti-cheat modules are not supported by Wine."
+            )
+        elif machine == 0xAA64:
+            info["compatibility_tier"] = "arch-mismatch"
+            info["notes"].append("ARM64 Windows binary cannot run directly on x86_64 Wine.")
+        else:
+            info["compatibility_tier"] = "candidate"
+            if machine == 0x014C:
+                info["notes"].append("32-bit x86 binary: ensure wine32 (i386 multiarch) is installed.")
+            else:
+                info["notes"].append("64-bit x86_64 binary: compatible with wine64 prefix.")
+            if info["dotnet_clr"]:
+                info["notes"].append(".NET CLR assembly detected: Wine Mono may be required inside the prefix.")
+
+    return info
+
+
+def create_shortcut(exe_path: Path, app_name: str, prefix_name: str) -> Path:
+    resolved_exe = exe_path.resolve()
+    if not resolved_exe.exists():
+        raise FileNotFoundError(f"Executable not found: {resolved_exe}")
+
+    pfx_slug = slugify(prefix_name)
+    create_prefix(pfx_slug)
+    sc_slug = slugify(app_name)
+    apps = applications_dir()
+    apps.mkdir(parents=True, exist_ok=True)
+    desktop_path = apps / f"nrma-wine-{sc_slug}.desktop"
+
+    escaped_exe = str(resolved_exe).replace('"', '\\"')
+    content = (
+        "[Desktop Entry]\n"
+        "Type=Application\n"
+        f"Name={app_name.strip()}\n"
+        f"Comment=Windows application managed by nrma Runtime (prefix: {pfx_slug})\n"
+        f'Exec=/usr/bin/nrma-runtime run --prefix {pfx_slug} "{escaped_exe}"\n'
+        "Icon=nrmaos\n"
+        "Terminal=false\n"
+        "Categories=Wine;Utility;\n"
+    )
+    desktop_path.write_text(content, encoding="utf-8")
+    os.chmod(desktop_path, 0o755)
+
+    # Refresh nrmaos-shell launcher if active
+    shellctl = shutil.which("nrma-shellctl")
+    if shellctl:
+        subprocess.run([shellctl, "reload-settings"], capture_output=True, timeout=3)
+    return desktop_path
+
+
+def run_windows_binary(exe_path: Path, prefix_name: str, extra_args: list[str]) -> int:
+    if not exe_path.is_file():
+        print(f"Error: file does not exist: {exe_path}", file=sys.stderr)
+        return 1
+
+    status = detect_wine()
+    if not status["wine_installed"]:
+        notify_bin = shutil.which("nrma-notify")
+        if notify_bin:
+            subprocess.run(
+                [
+                    notify_bin,
+                    "nrma Runtime — Wine Not Installed",
+                    "Open Settings > nrma Runtime to install the optional Wine engine.",
+                    "--urgency",
+                    "normal",
+                ],
+                capture_output=True,
+            )
+        # Open Settings > Runtime if X11 DISPLAY is active so the user gets guided setup
+        settings_bin = shutil.which("nrma-settings")
+        if os.environ.get("DISPLAY") and settings_bin:
+            subprocess.Popen([settings_bin, "--page", "runtime", "--inspect", str(exe_path.resolve())])
+        print(
+            "Wine is optional and not currently installed.\n"
+            "Install it via Settings > nrma Runtime or run: sudo nrma-runtime install-engine",
+            file=sys.stderr,
+        )
+        return 3
+
+    meta = create_prefix(prefix_name)
+    env = os.environ.copy()
+    env["WINEPREFIX"] = meta["path"]
+    env["WINEDEBUG"] = env.get("WINEDEBUG", "-all")
+
+    wine_bin = status["wine_binary"]
+    if exe_path.suffix.lower() == ".msi":
+        cmd = [wine_bin, "msiexec", "/i", str(exe_path.resolve()), *extra_args]
+    else:
+        cmd = [wine_bin, str(exe_path.resolve()), *extra_args]
+
+    return subprocess.call(cmd, env=env)
+
+
+def install_wine_engine() -> int:
+    if os.geteuid() != 0:
+        pkexec = shutil.which("pkexec")
+        if pkexec and os.environ.get("DISPLAY"):
+            return subprocess.call([pkexec, "/usr/bin/nrma-runtime", "install-engine"])
+        print("Error: installing Wine packages requires root privileges (sudo/pkexec).", file=sys.stderr)
+        return 1
+
+    env = os.environ.copy()
+    env["DEBIAN_FRONTEND"] = "noninteractive"
+    cmds = [
+        ["dpkg", "--add-architecture", "i386"],
+        ["apt-get", "update"],
+        ["apt-get", "install", "-y", "--no-install-recommends", "wine", "wine64", "wine32"],
+    ]
+    for c in cmds:
+        rc = subprocess.call(c, env=env)
+        if rc != 0 and c[-1] == "wine32":
+            # Fallback to 64-bit wine only if mirror lacks i386 packages
+            rc = subprocess.call(
+                ["apt-get", "install", "-y", "--no-install-recommends", "wine", "wine64"],
+                env=env,
+            )
+        if rc != 0:
+            return rc
+    return 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="nrma Runtime — Optional Windows EXE compatibility manager")
+    sub = parser.add_subparsers(dest="subcmd", required=True)
+
+    p_status = sub.add_parser("status", help="Show Wine status, prefixes, and compatibility guidance")
+    p_status.add_argument("--json", action="store_true")
+
+    p_inspect = sub.add_parser("inspect", help="Inspect a Windows .exe or .msi file header")
+    p_inspect.add_argument("file", type=Path)
+    p_inspect.add_argument("--json", action="store_true")
+
+    p_lp = sub.add_parser("list-prefixes", help="List isolated Wine prefixes")
+    p_lp.add_argument("--json", action="store_true")
+
+    p_cp = sub.add_parser("create-prefix", help="Create an isolated Wine prefix")
+    p_cp.add_argument("name")
+    p_cp.add_argument("--arch", choices=["win64", "win32"], default="win64")
+
+    p_rp = sub.add_parser("remove-prefix", help="Delete an isolated Wine prefix")
+    p_rp.add_argument("name")
+
+    p_sc = sub.add_parser("create-shortcut", help="Create an nrmaOS App Launcher shortcut for a Windows executable")
+    p_sc.add_argument("file", type=Path)
+    p_sc.add_argument("--name", required=True)
+    p_sc.add_argument("--prefix", default="default")
+
+    p_run = sub.add_parser("run", help="Run a Windows .exe/.msi inside an isolated prefix")
+    p_run.add_argument("--prefix", default="default")
+    p_run.add_argument("file", type=Path)
+    p_run.add_argument("args", nargs=argparse.REMAINDER)
+
+    p_inst = sub.add_parser("install", help="Run a Windows setup installer in a dedicated prefix")
+    p_inst.add_argument("file", type=Path)
+    p_inst.add_argument("--prefix", required=True)
+    p_inst.add_argument("--name", default="")
+
+    sub.add_parser("install-engine", help="Download and install optional Wine packages from Debian repositories")
+
+    args = parser.parse_args()
+
+    if args.subcmd == "status":
+        st = detect_wine()
+        if args.json:
+            print(json.dumps(st, indent=2))
+        else:
+            print(f"Wine Installed : {'Yes' if st['wine_installed'] else 'No (Optional)'}")
+            print(f"Wine Version   : {st['wine_version']}")
+            print(f"i386 Multiarch : {'Enabled' if st['i386_multiarch_enabled'] else 'Disabled'}")
+            print(f"Prefixes ({st['prefix_count']}) : {st['prefixes_root']}")
+            print(f"\nNote: {st['compatibility_notice']}")
+        return 0
+
+    if args.subcmd == "inspect":
+        info = inspect_pe_executable(args.file)
+        if args.json:
+            print(json.dumps(info, indent=2))
+        else:
+            print(f"File         : {info['filename']} ({info['size_bytes']} bytes)")
+            print(f"Valid PE     : {info['valid_pe']}")
+            print(f"Architecture : {info['architecture']}")
+            print(f"Format       : {info['pe_format']}")
+            print(f"Subsystem    : {info['subsystem']}")
+            print(f".NET CLR     : {'Yes' if info['dotnet_clr'] else 'No'}")
+            for n in info["notes"]:
+                print(f"  - {n}")
+        return 0 if info["exists"] else 1
+
+    if args.subcmd == "list-prefixes":
+        items = list_prefixes_data()
+        if args.json:
+            print(json.dumps(items, indent=2))
+        else:
+            for p in items:
+                print(f"{p['name']}\t{p.get('arch', 'win64')}\t{p['path']}")
+        return 0
+
+    if args.subcmd == "create-prefix":
+        meta = create_prefix(args.name, args.arch)
+        print(json.dumps(meta, indent=2))
+        return 0
+
+    if args.subcmd == "remove-prefix":
+        ok = remove_prefix(args.name)
+        if not ok:
+            print(f"Prefix not found: {args.name}", file=sys.stderr)
+            return 1
+        return 0
+
+    if args.subcmd == "create-shortcut":
+        sc_path = create_shortcut(args.file, args.name, args.prefix)
+        print(json.dumps({"ok": True, "shortcut": str(sc_path)}, indent=2))
+        return 0
+
+    if args.subcmd == "run":
+        return run_windows_binary(args.file, args.prefix, args.args)
+
+    if args.subcmd == "install":
+        rc = run_windows_binary(args.file, args.prefix, [])
+        if rc == 0 and args.name:
+            create_shortcut(args.file, args.name, args.prefix)
+        return rc
+
+    if args.subcmd == "install-engine":
+        return install_wine_engine()
+
+    return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

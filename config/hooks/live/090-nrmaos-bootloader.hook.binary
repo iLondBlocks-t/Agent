@@ -1,0 +1,22 @@
+#!/bin/sh
+# Runs inside binary/ right before xorriso creates the hybrid ISO.
+# Sets a 3-second automatic boot timeout and applies nrmaOS boot menu titles.
+set -eu
+
+for cfg in isolinux/isolinux.cfg isolinux/prompt.cfg isolinux/menu.cfg isolinux/live.cfg syslinux/syslinux.cfg; do
+    if [ -f "$cfg" ]; then
+        sed -i 's/^timeout 0$/timeout 30/g' "$cfg" || true
+        sed -i 's/Debian GNU\/Linux Live/nrmaOS Live/g' "$cfg" || true
+        sed -i 's/Debian GNU\/Linux/nrmaOS/g' "$cfg" || true
+    fi
+done
+
+for gcfg in boot/grub/grub.cfg boot/grub/config.cfg; do
+    if [ -f "$gcfg" ]; then
+        sed -i 's/Debian GNU\/Linux Live/nrmaOS Live/g' "$gcfg" || true
+        sed -i 's/Debian GNU\/Linux/nrmaOS/g' "$gcfg" || true
+        if ! grep -q 'set timeout=' "$gcfg"; then
+            printf '\nset default=0\nset timeout=3\n' >> "$gcfg"
+        fi
+    fi
+done

@@ -1,0 +1,10 @@
+[Unit]
+Description=Watch for QEMU VirtIO QA port (active only under automated VM test harness)
+Documentation=https://github.com/iLondBlocks-t/Agent
+
+[Path]
+PathExists=/dev/virtio-ports/org.nrmaos.qatest
+Unit=nrmaos-qa-agent.service
+
+[Install]
+WantedBy=multi-user.target

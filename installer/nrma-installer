@@ -1,0 +1,84 @@
+#!/usr/bin/env python3
+"""nrma-installer — Live environment readiness & removable media verification helper.
+
+Provides honest live-boot state, UEFI/BIOS firmware mode, memory, and read-only
+block device inventory without performing unattended destructive partitioning.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+from pathlib import Path
+import shutil
+import subprocess
+
+
+def collect_system_readiness() -> dict:
+    is_live = Path("/run/live/medium").exists() or "boot=live" in Path("/proc/cmdline").read_text(encoding="utf-8", errors="ignore")
+    firmware = "UEFI" if Path("/sys/firmware/efi").exists() else "Legacy BIOS"
+
+    mem_mib = 0
+    try:
+        for line in Path("/proc/meminfo").read_text(encoding="utf-8").splitlines():
+            if line.startswith("MemTotal:"):
+                mem_mib = int(line.split()[1]) // 1024
+                break
+    except Exception:
+        pass
+
+    disks = []
+    lsblk = shutil.which("lsblk")
+    if lsblk:
+        proc = subprocess.run(
+            [lsblk, "-J", "-o", "NAME,SIZE,TYPE,RM,RO,MOUNTPOINT"],
+            capture_output=True,
+            text=True,
+        )
+        if proc.returncode == 0:
+            try:
+                disks = json.loads(proc.stdout).get("blockdevices", [])
+            except Exception:
+                pass
+
+    return {
+        "os": "nrmaOS 0.1.0",
+        "live_session": is_live,
+        "firmware_mode": firmware,
+        "memory_total_mib": mem_mib,
+        "minimum_ram_met": mem_mib >= 1024,
+        "block_devices": disks,
+        "persistence_note": (
+            "This release boots as a non-destructive Debian Live hybrid image (BIOS + UEFI). "
+            "Changes in RAM reset on reboot unless written to explicitly mounted external storage."
+        ),
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Inspect nrmaOS live session and hardware readiness.")
+    parser.add_argument("--json", action="store_true", help="Print JSON report")
+    args = parser.parse_args()
+
+    info = collect_system_readiness()
+    if args.json:
+        print(json.dumps(info, indent=2))
+        return 0
+
+    print("=== nrmaOS Live & Hardware Readiness ===")
+    print(f"Session Mode  : {'Live Evaluation Media' if info['live_session'] else 'Installed / Host Environment'}")
+    print(f"Boot Firmware : {info['firmware_mode']}")
+    print(f"System RAM    : {info['memory_total_mib']} MiB ({'OK' if info['minimum_ram_met'] else 'Below 1 GiB minimum'})")
+    print(f"\nNote: {info['persistence_note']}")
+
+    # If launched from desktop GUI without terminal, also open Settings > About
+    if os.environ.get("DISPLAY") and not os.isatty(0):
+        settings = shutil.which("nrma-settings")
+        if settings:
+            subprocess.Popen([settings, "--page", "about"])
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

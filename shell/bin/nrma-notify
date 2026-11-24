@@ -1,0 +1,48 @@
+#!/usr/bin/env python3
+"""Post a desktop notification to the active nrmaOS Notification Center."""
+
+import argparse
+import json
+import os
+import socket
+import sys
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Send a notification to nrmaOS Desktop.")
+    parser.add_argument("title", help="Notification title")
+    parser.add_argument("body", nargs="?", default="", help="Notification message body")
+    parser.add_argument(
+        "--urgency",
+        choices=["low", "normal", "critical"],
+        default="normal",
+        help="Notification urgency level",
+    )
+    args = parser.parse_args()
+
+    ipc_dir = f"/tmp/nrmaos-ipc-{os.getuid()}"
+    disp = os.environ.get("DISPLAY", ":0")
+    disp_num = disp.split(":", 1)[1].split(".", 1)[0] if ":" in disp else "0"
+    sock_path = f"{ipc_dir}/shell-{disp_num or '0'}.sock"
+    if not os.path.exists(sock_path):
+        sock_path = f"{ipc_dir}/shell.sock"
+    if not os.path.exists(sock_path):
+        print(f"nrmaos-shell socket not active ({sock_path})", file=sys.stderr)
+        return 1
+
+    payload = {
+        "cmd": "notify",
+        "title": args.title,
+        "body": args.body,
+        "urgency": args.urgency,
+    }
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
+        sock.settimeout(3.0)
+        sock.connect(sock_path)
+        sock.sendall((json.dumps(payload) + "\n").encode("utf-8"))
+        resp = json.loads(sock.recv(4096).decode("utf-8").strip())
+    return 0 if resp.get("ok") else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

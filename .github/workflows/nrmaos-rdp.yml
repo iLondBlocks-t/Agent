@@ -1,0 +1,228 @@
+name: nrmaOS Remote Desktop
+
+on:
+  workflow_dispatch:
+    inputs:
+      session_minutes:
+        description: "Maximum session duration in minutes (15-340; GitHub-hosted runners cap jobs at 360 min)"
+        required: false
+        default: "330"
+        type: string
+      rdp_resolution:
+        description: "Initial nrmaOS Remote Desktop session resolution"
+        required: false
+        default: "dynamic"
+        type: choice
+        options:
+          - dynamic
+          - 1920x1080
+          - 1600x900
+          - 1366x768
+          - 1280x720
+      tailscale_tags:
+        description: "Tailscale ACL tag(s) advertised by this ephemeral runner node"
+        required: false
+        default: "tag:nrmaos-ci"
+        type: string
+      vm_cpus:
+        description: "vCPU cores allocated to nrmaOS QEMU guest (clamped to runner core count)"
+        required: false
+        default: "4"
+        type: string
+      vm_memory_mib:
+        description: "RAM (MiB) allocated to nrmaOS QEMU guest"
+        required: false
+        default: "4096"
+        type: string
+      force_rebuild_iso:
+        description: "Rebuild ISO from source even if a verified artifact exists for this exact commit"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+  actions: read
+  id-token: write
+
+env:
+  FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: "true"
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  nrmaos-tailscale-rdp:
+    name: nrmaOS Live QEMU + Tailscale RDP
+    runs-on: ubuntu-24.04
+    # GitHub-hosted standard runners enforce a strict 6-hour (360-minute) maximum runtime.
+    timeout-minutes: 360
+
+    steps:
+      - name: Check out nrmaOS repository
+        uses: actions/checkout@v4
+
+      - name: Install QEMU, age encryption CLI, and verification tools
+        run: |
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            age \
+            iproute2 \
+            openssl \
+            qemu-system-x86 \
+            qemu-utils \
+            unzip \
+            xorriso
+          if [ -e /dev/kvm ]; then
+            sudo chmod 0666 /dev/kvm || true
+            ls -l /dev/kvm
+          else
+            echo "::warning::/dev/kvm is not exposed on this runner; QEMU will fall back to software TCG emulation."
+          fi
+
+      - name: Validate Tailscale secrets and credential privacy configuration
+        env:
+          REPO_PRIVATE: ${{ github.event.repository.private }}
+          NRMAOS_AGE_RECIPIENT: ${{ vars.NRMAOS_AGE_RECIPIENT || secrets.NRMAOS_AGE_RECIPIENT }}
+          HAS_TS_OIDC: ${{ secrets.TS_OAUTH_CLIENT_ID != '' && secrets.TS_AUDIENCE != '' }}
+          HAS_TS_OAUTH: ${{ secrets.TS_OAUTH_CLIENT_ID != '' && secrets.TS_OAUTH_SECRET != '' }}
+          HAS_TS_AUTHKEY: ${{ secrets.TAILSCALE_AUTHKEY != '' || secrets.TAILSCALE_AUTH_KEY != '' }}
+        run: |
+          vis="public"
+          if [ "${REPO_PRIVATE}" = "true" ]; then
+            vis="private"
+          fi
+          echo "NRMAOS_REPO_VISIBILITY=${vis}" >> "$GITHUB_ENV"
+
+          raw_mins="${{ inputs.session_minutes || '330' }}"
+          if ! [[ "$raw_mins" =~ ^[0-9]+$ ]]; then
+            raw_mins=330
+          fi
+          if [ "$raw_mins" -lt 15 ]; then raw_mins=15; fi
+          if [ "$raw_mins" -gt 340 ]; then raw_mins=340; fi
+          echo "NRMAOS_SESSION_MINUTES=${raw_mins}" >> "$GITHUB_ENV"
+
+          python3 scripts/rdp_qemu_session.py preflight \
+            --repo-visibility "$vis" \
+            --require-tailscale-secrets
+
+      - name: Retrieve or build exact-commit nrmaOS Live ISO
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          FORCE_REBUILD: ${{ inputs.force_rebuild_iso }}
+        run: |
+          source build/live-build.env
+          iso="${NRMAOS_ISO_BASENAME}.iso"
+          retrieved="false"
+
+          if [ "${FORCE_REBUILD}" != "true" ]; then
+            echo "Checking for an existing verified ISO artifact matching commit ${GITHUB_SHA}..."
+            match_run_id=$(
+              gh api "repos/${GITHUB_REPOSITORY}/actions/artifacts?name=nrmaos-amd64-live-iso&per_page=30" \
+                --jq ".artifacts[] | select(.expired == false and .workflow_run.head_sha == \"${GITHUB_SHA}\") | .workflow_run.id" \
+                2>/dev/null | head -n 1 || true
+            )
+            if [ -n "${match_run_id}" ]; then
+              echo "Found exact-commit ISO artifact from workflow run ${match_run_id}; downloading..."
+              if gh run download "${match_run_id}" -n nrmaos-amd64-live-iso -D .; then
+                if [ -s "$iso" ] && [ -s "${iso}.sha256" ] && sha256sum -c "${iso}.sha256"; then
+                  retrieved="true"
+                  echo "Verified exact-commit ISO checksum for ${GITHUB_SHA}."
+                else
+                  rm -f "$iso" "${iso}.sha256"
+                fi
+              fi
+            fi
+          fi
+
+          if [ "${retrieved}" != "true" ]; then
+            echo "Building nrmaOS Live ISO from source for commit ${GITHUB_SHA}..."
+            ./scripts/build-iso.sh
+          fi
+
+          test -s "$iso"
+          xorriso -indev "$iso" -report_el_torito plain
+          sha256sum -c "${iso}.sha256"
+
+      - name: Connect GitHub Runner to Tailnet
+        uses: tailscale/github-action@v4
+        with:
+          oauth-client-id: ${{ secrets.TS_OAUTH_CLIENT_ID }}
+          oauth-secret: ${{ secrets.TS_OAUTH_SECRET }}
+          audience: ${{ secrets.TS_AUDIENCE }}
+          authkey: ${{ secrets.TAILSCALE_AUTHKEY || secrets.TAILSCALE_AUTH_KEY }}
+          tags: ${{ inputs.tailscale_tags || 'tag:nrmaos-ci' }}
+          hostname: nrmaos-rdp-${{ github.run_id }}
+          version: latest
+
+      - name: Boot nrmaOS in Headless QEMU, Provision RDP & Configure Tailscale Serve
+        id: bootstrap
+        env:
+          NRMAOS_AGE_RECIPIENT: ${{ vars.NRMAOS_AGE_RECIPIENT || secrets.NRMAOS_AGE_RECIPIENT }}
+        run: |
+          source build/live-build.env
+          state_dir="/dev/shm/nrmaos-rdp-${GITHUB_RUN_ID}"
+          bundle_dir="/tmp/nrmaos-rdp-bundle-${GITHUB_RUN_ID}"
+          enc_file="${bundle_dir}/nrmaos-rdp-credentials.age.txt"
+          artifact_name="nrmaos-rdp-credentials-${GITHUB_RUN_ID}"
+
+          rm -rf "$bundle_dir"
+          install -d -m 0700 "$bundle_dir"
+
+          python3 scripts/rdp_qemu_session.py start \
+            --iso "${NRMAOS_ISO_BASENAME}.iso" \
+            --state-dir "$state_dir" \
+            --host-port 13389 \
+            --repo-visibility "${NRMAOS_REPO_VISIBILITY}" \
+            --tailscale \
+            --encrypted-out "$enc_file" \
+            --summary-file "$GITHUB_STEP_SUMMARY" \
+            --artifact-name "$artifact_name" \
+            --max-minutes "${NRMAOS_SESSION_MINUTES}" \
+            --cpus "${{ inputs.vm_cpus || '4' }}" \
+            --memory-mib "${{ inputs.vm_memory_mib || '4096' }}" \
+            --resolution "${{ inputs.rdp_resolution || 'dynamic' }}"
+
+          if [ -s "$enc_file" ]; then
+            head_line=$(head -n 1 "$enc_file" | tr -d '\r')
+            tail_line=$(tail -n 1 "$enc_file" | tr -d '\r')
+            if [ "$head_line" != "-----BEGIN AGE ENCRYPTED FILE-----" ] || [ "$tail_line" != "-----END AGE ENCRYPTED FILE-----" ]; then
+              echo "::error::Refusing to upload credential file: invalid age armor header/footer."
+              rm -rf "$bundle_dir"
+              exit 1
+            fi
+            echo "has_encrypted_bundle=true" >> "$GITHUB_OUTPUT"
+            echo "enc_file=${enc_file}" >> "$GITHUB_OUTPUT"
+            echo "artifact_name=${artifact_name}" >> "$GITHUB_OUTPUT"
+          else
+            echo "has_encrypted_bundle=false" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Upload age-Encrypted One-Time Credential Bundle
+        if: steps.bootstrap.outputs.has_encrypted_bundle == 'true'
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ steps.bootstrap.outputs.artifact_name }}
+          path: ${{ steps.bootstrap.outputs.enc_file }}
+          if-no-files-found: error
+          retention-days: 1
+
+      - name: Remove local staging copy of encrypted bundle
+        if: always()
+        run: rm -rf "/tmp/nrmaos-rdp-bundle-${GITHUB_RUN_ID}"
+
+      - name: Keep nrmaOS Remote Desktop Session Alive
+        run: |
+          python3 scripts/rdp_qemu_session.py keepalive \
+            --state-dir "/dev/shm/nrmaos-rdp-${GITHUB_RUN_ID}" \
+            --max-minutes "${NRMAOS_SESSION_MINUTES}"
+
+      - name: Cleanup QEMU, Tailscale Serve, and Temporary State
+        if: always()
+        run: |
+          rm -rf "/tmp/nrmaos-rdp-bundle-${GITHUB_RUN_ID}"
+          python3 scripts/rdp_qemu_session.py cleanup \
+            --state-dir "/dev/shm/nrmaos-rdp-${GITHUB_RUN_ID}" \
+            --reset-tailscale-serve \
+            --summary-file "$GITHUB_STEP_SUMMARY"

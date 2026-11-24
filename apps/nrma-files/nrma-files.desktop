@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=nrma Files
+Comment=Browse files, storage, and run Windows executables in nrma Runtime
+Exec=/usr/bin/nrma-files %u
+Icon=nrmaos
+Terminal=false
+Categories=System;FileTools;FileManager;
+MimeType=inode/directory;

@@ -1,3 +1,5 @@
-# Installer
+# Live Environment & Readiness Helper (`installer/`)
 
-A disk installer and persistent system installation are not implemented in the first milestone. This repository currently targets a live evaluation ISO only. Do not use the image as an installer or run destructive disk-writing instructions from an unreviewed branch.
+`nrma-installer` inspects whether nrmaOS is booted from live removable media, reports UEFI vs Legacy BIOS boot mode, checks available RAM, and lists block devices read-only (`lsblk -J`).
+
+This release intentionally ships as a non-destructive hybrid Live ISO (BIOS + UEFI) rather than performing unattended disk repartitioning. See [docs/installation.md](../docs/installation.md) for verified bootable USB instructions.

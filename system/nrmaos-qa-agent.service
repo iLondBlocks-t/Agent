@@ -1,0 +1,10 @@
+[Unit]
+Description=nrmaOS Automated QEMU Test Harness Responder
+ConditionPathExists=/dev/virtio-ports/org.nrmaos.qatest
+After=systemd-udevd.service
+
+[Service]
+Type=simple
+ExecStart=/usr/bin/python3 /usr/lib/nrmaos/nrmaos-qa-agent.py
+Restart=always
+RestartSec=1

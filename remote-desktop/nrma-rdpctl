@@ -1,0 +1,676 @@
+#!/usr/bin/env python3
+"""nrma-rdpctl — Secure controller and status provider for nrmaOS Remote Desktop (xrdp + xorgxrdp).
+
+Security invariants:
+- RDP is disabled by default in nrmaOS.
+- Root login (UID < 1000) is blocked in both sesman.ini and /etc/pam.d/xrdp-sesman.
+- Passwords are NEVER accepted on argv or stored in plaintext; password changes read stdin only.
+- TLSv1.2 / TLSv1.3 is enforced with a locally generated per-machine ECDSA certificate.
+- Firewall rules restrict incoming RDP to RFC1918 local networks ("lan"), the "tailscale0"
+  interface ("tailscale"), or both ("lan+tailscale"); public CIDRs are rejected by default
+  and UPnP/NAT-PMP is never used.
+"""
+
+from __future__ import annotations
+
+import argparse
+import grp
+import ipaddress
+import json
+import os
+from pathlib import Path
+import pwd
+import re
+import shutil
+import socket
+import subprocess
+import sys
+
+STATE_FILE = Path("/etc/nrmaos/rdp.json")
+XRDP_INI = Path("/etc/xrdp/xrdp.ini")
+SESMAN_INI = Path("/etc/xrdp/sesman.ini")
+PAM_SESMAN = Path("/etc/pam.d/xrdp-sesman")
+CERT_PATH = Path("/etc/xrdp/cert.pem")
+KEY_PATH = Path("/etc/xrdp/key.pem")
+RDP_GROUP = "nrmaos-rdp"
+TAILSCALE_INTERFACE = "tailscale0"
+TAILSCALE_CGNAT_NET = ipaddress.ip_network("100.64.0.0/10")
+TAILSCALE_IPV4_CIDR = "100.64.0.0/10"
+TAILSCALE_IPV6_CIDR = "fd7a:115c:a1e0::/48"
+
+DEFAULT_PRIVATE_SUBNETS = [
+    "10.0.0.0/8",
+    "172.16.0.0/12",
+    "192.168.0.0/16",
+]
+
+VALID_FIREWALL_MODES = [
+    "lan",
+    "tailscale",
+    "lan+tailscale",
+]
+
+VALID_RESOLUTIONS = [
+    "dynamic",
+    "1920x1080",
+    "1600x900",
+    "1366x768",
+    "1280x720",
+]
+
+
+def load_config() -> dict:
+    cfg = {
+        "enabled": False,
+        "port": 3389,
+        "firewall_mode": "lan",
+        "allowed_subnets": list(DEFAULT_PRIVATE_SUBNETS),
+        "default_resolution": "dynamic",
+    }
+    if STATE_FILE.is_file():
+        try:
+            loaded = json.loads(STATE_FILE.read_text(encoding="utf-8"))
+            if isinstance(loaded, dict):
+                cfg.update(loaded)
+        except Exception:
+            pass
+    if cfg.get("firewall_mode") not in VALID_FIREWALL_MODES:
+        cfg["firewall_mode"] = "lan"
+    return cfg
+
+
+def save_config(cfg: dict) -> None:
+    STATE_FILE.parent.mkdir(parents=True, exist_ok=True)
+    tmp = STATE_FILE.with_suffix(".tmp")
+    tmp.write_text(json.dumps(cfg, indent=2) + "\n", encoding="utf-8")
+    os.chmod(tmp, 0o644)
+    tmp.replace(STATE_FILE)
+
+
+def require_root(reexec_args: list[str] | None = None) -> None:
+    if os.geteuid() == 0:
+        return
+    if reexec_args and os.environ.get("DISPLAY"):
+        pkexec = shutil.which("pkexec")
+        if pkexec:
+            rc = subprocess.call([pkexec, "/usr/bin/nrma-rdpctl", *reexec_args])
+            raise SystemExit(rc)
+    print("Error: modifying Remote Desktop configuration requires root privileges.", file=sys.stderr)
+    raise SystemExit(1)
+
+
+def is_service_active(unit: str) -> bool:
+    systemctl = shutil.which("systemctl")
+    if not systemctl:
+        return False
+    proc = subprocess.run([systemctl, "is-active", "--quiet", unit])
+    return proc.returncode == 0
+
+
+def is_service_enabled(unit: str) -> bool:
+    systemctl = shutil.which("systemctl")
+    if not systemctl:
+        return False
+    proc = subprocess.run([systemctl, "is-enabled", "--quiet", unit], capture_output=True)
+    return proc.returncode == 0
+
+
+def tailscale_interface_info(sysfs_net_root: Path = Path("/sys/class/net")) -> dict:
+    iface_dir = sysfs_net_root / TAILSCALE_INTERFACE
+    present = iface_dir.exists()
+    ips: list[str] = []
+    ip_bin = shutil.which("ip")
+    if present and ip_bin and sysfs_net_root == Path("/sys/class/net"):
+        proc = subprocess.run(
+            [ip_bin, "-j", "addr", "show", "dev", TAILSCALE_INTERFACE],
+            capture_output=True,
+            text=True,
+        )
+        if proc.returncode == 0:
+            try:
+                data = json.loads(proc.stdout)
+                for entry in data:
+                    for addr in entry.get("addr_info", []):
+                        local = addr.get("local", "")
+                        if local and local not in ips:
+                            ips.append(local)
+            except Exception:
+                pass
+    ipv4s = [ip for ip in ips if ":" not in ip]
+    return {
+        "interface": TAILSCALE_INTERFACE,
+        "present": present,
+        "ips": ips,
+        "ipv4": ipv4s[0] if ipv4s else "",
+    }
+
+
+def get_local_ipv4s() -> list[str]:
+    ips: list[str] = []
+    ip_bin = shutil.which("ip")
+    if ip_bin:
+        proc = subprocess.run([ip_bin, "-4", "-j", "addr", "show"], capture_output=True, text=True)
+        if proc.returncode == 0:
+            try:
+                data = json.loads(proc.stdout)
+                for iface in data:
+                    ifname = iface.get("ifname", "")
+                    if iface.get("operstate") == "DOWN" or ifname in ("lo", TAILSCALE_INTERFACE):
+                        continue
+                    for addr in iface.get("addr_info", []):
+                        local = addr.get("local", "")
+                        if local and not local.startswith("127.") and local not in ips:
+                            ips.append(local)
+            except Exception:
+                pass
+    if not ips:
+        try:
+            with socket.socket(socket.AF_INET, socket.SOCK_DGRAM) as s:
+                s.connect(("10.255.255.255", 1))
+                cand = s.getsockname()[0]
+                if cand and not cand.startswith("127."):
+                    ips.append(cand)
+        except Exception:
+            pass
+    return ips
+
+
+def check_port_listening(port: int) -> bool:
+    ss_bin = shutil.which("ss")
+    if not ss_bin:
+        return False
+    proc = subprocess.run([ss_bin, "-tln"], capture_output=True, text=True)
+    if proc.returncode != 0:
+        return False
+    pattern = re.compile(rf":{port}\b")
+    return bool(pattern.search(proc.stdout))
+
+
+def verify_root_login_blocked() -> bool:
+    sesman_ok = False
+    if SESMAN_INI.is_file():
+        txt = SESMAN_INI.read_text(encoding="utf-8", errors="replace")
+        sesman_ok = bool(re.search(r"(?m)^\s*AllowRootLogin\s*=\s*(false|0|no)\s*$", txt, re.IGNORECASE))
+    pam_ok = False
+    if PAM_SESMAN.is_file():
+        ptxt = PAM_SESMAN.read_text(encoding="utf-8", errors="replace")
+        pam_ok = "pam_succeed_if.so" in ptxt and "uid >= 1000" in ptxt
+    return sesman_ok and pam_ok
+
+
+def tls_status() -> tuple[bool, str]:
+    if not CERT_PATH.is_file() or not KEY_PATH.is_file():
+        return False, ""
+    if CERT_PATH.stat().st_size == 0 or KEY_PATH.stat().st_size == 0:
+        return False, ""
+    openssl = shutil.which("openssl")
+    fp = ""
+    if openssl:
+        proc = subprocess.run(
+            [openssl, "x509", "-in", str(CERT_PATH), "-noout", "-fingerprint", "-sha256"],
+            capture_output=True,
+            text=True,
+        )
+        if proc.returncode == 0:
+            fp = proc.stdout.strip().split("=", 1)[-1]
+    return True, fp
+
+
+def ensure_tls_certificate() -> None:
+    ok, _ = tls_status()
+    if ok and not CERT_PATH.is_symlink() and not KEY_PATH.is_symlink():
+        return
+
+    CERT_PATH.parent.mkdir(parents=True, exist_ok=True)
+    for p in (CERT_PATH, KEY_PATH):
+        if p.exists() or p.is_symlink():
+            p.unlink()
+
+    hostname = socket.gethostname() or "nrmaos"
+    subprocess.run(
+        [
+            "openssl",
+            "req",
+            "-x509",
+            "-newkey",
+            "ec",
+            "-pkeyopt",
+            "ec_paramgen_curve:prime256v1",
+            "-days",
+            "365",
+            "-nodes",
+            "-subj",
+            f"/CN={hostname}.local/O=nrmaOS Remote Desktop",
+            "-keyout",
+            str(KEY_PATH),
+            "-out",
+            str(CERT_PATH),
+        ],
+        check=True,
+        capture_output=True,
+    )
+    os.chmod(CERT_PATH, 0o644)
+    try:
+        xrdp_gid = grp.getgrnam("xrdp").gr_gid
+        os.chown(KEY_PATH, 0, xrdp_gid)
+    except KeyError:
+        os.chown(KEY_PATH, 0, 0)
+    os.chmod(KEY_PATH, 0o640)
+
+
+def ensure_rdp_group() -> None:
+    try:
+        grp.getgrnam(RDP_GROUP)
+    except KeyError:
+        subprocess.run(["groupadd", "--system", RDP_GROUP], check=True)
+
+
+def list_users_info() -> tuple[list[str], list[str]]:
+    eligible: list[str] = []
+    for entry in pwd.getpwall():
+        if 1000 <= entry.pw_uid < 60000 and not entry.pw_shell.endswith(("nologin", "false")):
+            eligible.append(entry.pw_name)
+    eligible.sort()
+
+    authorized: list[str] = []
+    try:
+        g = grp.getgrnam(RDP_GROUP)
+        authorized = sorted([u for u in g.gr_mem if u in eligible])
+    except KeyError:
+        pass
+    return eligible, authorized
+
+
+def list_connected_sessions() -> list[dict]:
+    sessions: list[dict] = []
+    ps = subprocess.run(["ps", "-eo", "user:32,pid,args"], capture_output=True, text=True)
+    if ps.returncode != 0:
+        return sessions
+    for line in ps.stdout.splitlines():
+        if "Xorg" in line and "xrdp/xorg.conf" in line:
+            parts = line.split(None, 2)
+            if len(parts) < 3:
+                continue
+            user, pid, cmd = parts
+            disp_match = re.search(r"(:\d+)", cmd)
+            sessions.append(
+                {
+                    "user": user,
+                    "pid": int(pid),
+                    "display": disp_match.group(1) if disp_match else "remote",
+                    "backend": "xorgxrdp",
+                }
+            )
+    return sessions
+
+
+def update_xrdp_ini_port(port: int) -> None:
+    if not XRDP_INI.is_file():
+        return
+    lines = XRDP_INI.read_text(encoding="utf-8", errors="replace").splitlines()
+    out: list[str] = []
+    in_globals = False
+    replaced_port = False
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith("[") and stripped.endswith("]"):
+            in_globals = stripped.lower() == "[globals]"
+            out.append(line)
+            continue
+        if in_globals and re.match(r"^\s*port\s*=", line):
+            out.append(f"port={port}")
+            replaced_port = True
+        else:
+            out.append(line)
+    if not replaced_port:
+        out.insert(1, f"port={port}")
+    XRDP_INI.write_text("\n".join(out) + "\n", encoding="utf-8")
+
+
+def build_ufw_rule_commands(port: int, subnets: list[str], firewall_mode: str) -> list[list[str]]:
+    if firewall_mode not in VALID_FIREWALL_MODES:
+        raise ValueError(f"Unsupported firewall_mode '{firewall_mode}'; choose from {VALID_FIREWALL_MODES}")
+
+    cmds: list[list[str]] = []
+    if firewall_mode in ("lan", "lan+tailscale"):
+        for cidr in subnets:
+            cmds.append(
+                [
+                    "allow",
+                    "from",
+                    cidr,
+                    "to",
+                    "any",
+                    "port",
+                    str(port),
+                    "proto",
+                    "tcp",
+                    "comment",
+                    "nrmaos-rdp",
+                ]
+            )
+    if firewall_mode in ("tailscale", "lan+tailscale"):
+        for ts_cidr in (TAILSCALE_IPV4_CIDR, TAILSCALE_IPV6_CIDR):
+            cmds.append(
+                [
+                    "allow",
+                    "in",
+                    "on",
+                    TAILSCALE_INTERFACE,
+                    "from",
+                    ts_cidr,
+                    "to",
+                    "any",
+                    "port",
+                    str(port),
+                    "proto",
+                    "tcp",
+                    "comment",
+                    "nrmaos-rdp",
+                ]
+            )
+    return cmds
+
+
+def sync_firewall_rules(
+    enabled: bool,
+    port: int,
+    subnets: list[str],
+    firewall_mode: str = "lan",
+) -> bool:
+    ufw = shutil.which("ufw")
+    if not ufw:
+        return False
+
+    # Remove existing nrmaos-rdp tagged rules cleanly (reverse order by rule number)
+    st = subprocess.run([ufw, "status", "numbered"], capture_output=True, text=True)
+    if st.returncode == 0:
+        nums: list[int] = []
+        for ln in st.stdout.splitlines():
+            if "nrmaos-rdp" in ln:
+                m = re.match(r"^\[\s*(\d+)\]", ln)
+                if m:
+                    nums.append(int(m.group(1)))
+        for num in sorted(nums, reverse=True):
+            subprocess.run([ufw, "--force", "delete", str(num)], capture_output=True)
+
+    if enabled:
+        for rule_args in build_ufw_rule_commands(port, subnets, firewall_mode):
+            subprocess.run([ufw, *rule_args], check=False, capture_output=True)
+        subprocess.run([ufw, "--force", "enable"], check=False, capture_output=True)
+    return True
+
+
+def firewall_is_active() -> bool:
+    ufw = shutil.which("ufw")
+    if not ufw:
+        return False
+    proc = subprocess.run([ufw, "status"], capture_output=True, text=True)
+    return proc.returncode == 0 and "Status: active" in proc.stdout
+
+
+def validate_subnets(raw_subnets: list[str], allow_public_unsafe: bool = False) -> list[str]:
+    cleaned: list[str] = []
+    for item in raw_subnets:
+        for part in item.split(","):
+            s = part.strip()
+            if not s:
+                continue
+            net = ipaddress.ip_network(s, strict=False)
+            if not allow_public_unsafe:
+                if (
+                    isinstance(net, ipaddress.IPv4Network)
+                    and net.prefixlen >= 10
+                    and net.subnet_of(TAILSCALE_CGNAT_NET)
+                ):
+                    raise ValueError(
+                        f"Refusing shared CGNAT/Tailscale CIDR '{net}' on untrusted interfaces. "
+                        "Use '--firewall-mode tailscale' or '--firewall-mode lan+tailscale' to "
+                        f"restrict Tailscale RDP traffic safely to the '{TAILSCALE_INTERFACE}' interface."
+                    )
+                if net.prefixlen == 0 or not (net.is_private or net.is_loopback or net.is_link_local):
+                    raise ValueError(
+                        f"Refusing public/global CIDR '{net}' without explicit --allow-public-unsafe. "
+                        "Use a local RFC1918 subnet (e.g. 192.168.0.0/16) or --firewall-mode tailscale."
+                    )
+            cleaned.append(str(net))
+    return cleaned or list(DEFAULT_PRIVATE_SUBNETS)
+
+
+def collect_status() -> dict:
+    cfg = load_config()
+    port = int(cfg.get("port", 3389))
+    fw_mode = cfg.get("firewall_mode", "lan")
+    if fw_mode not in VALID_FIREWALL_MODES:
+        fw_mode = "lan"
+    xrdp_active = is_service_active("xrdp")
+    sesman_active = is_service_active("xrdp-sesman")
+    tls_ok, tls_fp = tls_status()
+    eligible_users, authorized_users = list_users_info()
+    local_ips = get_local_ipv4s()
+    ts_info = tailscale_interface_info()
+
+    if fw_mode == "tailscale":
+        primary_ip = ts_info["ipv4"] or "<tailscale-ip>"
+    elif fw_mode == "lan+tailscale" and ts_info["ipv4"] and not local_ips:
+        primary_ip = ts_info["ipv4"]
+    else:
+        primary_ip = local_ips[0] if local_ips else (ts_info["ipv4"] or "<local-ip>")
+
+    return {
+        "enabled": bool(cfg.get("enabled", False)) or is_service_enabled("xrdp"),
+        "active": xrdp_active,
+        "sesman_active": sesman_active,
+        "listening": check_port_listening(port),
+        "port": port,
+        "firewall_mode": fw_mode,
+        "available_firewall_modes": VALID_FIREWALL_MODES,
+        "local_ips": local_ips,
+        "tailscale_interface": TAILSCALE_INTERFACE,
+        "tailscale_interface_present": ts_info["present"],
+        "tailscale_ips": ts_info["ips"],
+        "tailscale_ipv4": ts_info["ipv4"],
+        "allowed_subnets": cfg.get("allowed_subnets", DEFAULT_PRIVATE_SUBNETS),
+        "default_resolution": cfg.get("default_resolution", "dynamic"),
+        "available_resolutions": VALID_RESOLUTIONS,
+        "tls_configured": tls_ok,
+        "tls_fingerprint_sha256": tls_fp,
+        "root_login_blocked": verify_root_login_blocked(),
+        "firewall_active": firewall_is_active(),
+        "eligible_users": eligible_users,
+        "authorized_users": authorized_users,
+        "connected_sessions": list_connected_sessions(),
+        "connection_endpoint": f"{primary_ip}:{port}",
+        "instructions": {
+            "windows": f"Open 'Remote Desktop Connection' (mstsc.exe), enter {primary_ip}:{port}, and sign in with an authorized non-root nrmaOS account.",
+            "android": f"Install Windows App (Microsoft Remote Desktop) or aFreeRDP, add PC '{primary_ip}:{port}', and sign in with your nrmaOS username and password.",
+            "remote_internet": "Do NOT forward TCP 3389 on a public router. For remote access outside your LAN, enable Tailscale mode (tailscale0) or use an SSH/WireGuard tunnel.",
+        },
+    }
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Manage nrmaOS Remote Desktop (xrdp + xorgxrdp)")
+    sub = parser.add_subparsers(dest="subcmd", required=True)
+
+    p_st = sub.add_parser("status", help="Display Remote Desktop server, security, and session status")
+    p_st.add_argument("--json", action="store_true")
+
+    p_en = sub.add_parser("enable", help="Configure TLS, firewall rules, and start xrdp")
+    p_en.add_argument("--port", type=int, default=None)
+    p_en.add_argument("--firewall-mode", choices=VALID_FIREWALL_MODES, default=None)
+    p_en.add_argument("--subnet", action="append", default=[])
+    p_en.add_argument("--resolution", choices=VALID_RESOLUTIONS, default=None)
+    p_en.add_argument("--allow-public-unsafe", action="store_true")
+
+    sub.add_parser("disable", help="Stop xrdp, disable autostart, and close RDP firewall rules")
+
+    p_port = sub.add_parser("set-port", help="Update listening TCP port (1024-65535)")
+    p_port.add_argument("port", type=int)
+
+    p_fw = sub.add_parser("set-firewall-mode", help="Set firewall mode (lan, tailscale, lan+tailscale)")
+    p_fw.add_argument("firewall_mode", choices=VALID_FIREWALL_MODES)
+
+    p_res = sub.add_parser("set-resolution", help="Set initial session resolution preference")
+    p_res.add_argument("resolution", choices=VALID_RESOLUTIONS)
+
+    p_gu = sub.add_parser("grant-user", help="Allow a non-root local user to connect via RDP")
+    p_gu.add_argument("username")
+
+    p_ru = sub.add_parser("revoke-user", help="Revoke RDP access for a local user")
+    p_ru.add_argument("username")
+
+    p_pw = sub.add_parser("set-user-password", help="Set local user password from stdin (never argv)")
+    p_pw.add_argument("username")
+
+    args = parser.parse_args()
+
+    if args.subcmd == "status":
+        st = collect_status()
+        if args.json:
+            print(json.dumps(st, indent=2))
+        else:
+            print(f"RDP Enabled      : {st['enabled']}")
+            print(f"Server Active    : {st['active']} (listening: {st['listening']})")
+            print(f"Endpoint         : {st['connection_endpoint']}")
+            print(f"Firewall Mode    : {st['firewall_mode']} (tailscale0 present: {st['tailscale_interface_present']})")
+            print(f"Allowed Subnets  : {', '.join(st['allowed_subnets'])}")
+            print(f"TLS Configured   : {st['tls_configured']}")
+            print(f"Root Blocked     : {st['root_login_blocked']}")
+            print(f"Firewall Active  : {st['firewall_active']}")
+            print(f"Authorized Users : {', '.join(st['authorized_users']) or '(none)'}")
+            print(f"Active Sessions  : {len(st['connected_sessions'])}")
+        return 0
+
+    require_root(sys.argv[1:])
+    cfg = load_config()
+    ensure_rdp_group()
+
+    if args.subcmd == "enable":
+        port = args.port if args.port is not None else int(cfg.get("port", 3389))
+        if not (1024 <= port <= 65535):
+            print("Error: port must be between 1024 and 65535.", file=sys.stderr)
+            return 2
+        fw_mode = args.firewall_mode or cfg.get("firewall_mode", "lan")
+        try:
+            subnets = (
+                validate_subnets(args.subnet, args.allow_public_unsafe)
+                if args.subnet
+                else validate_subnets(cfg.get("allowed_subnets", DEFAULT_PRIVATE_SUBNETS), args.allow_public_unsafe)
+            )
+        except ValueError as exc:
+            print(f"Error: {exc}", file=sys.stderr)
+            return 2
+
+        if args.resolution:
+            cfg["default_resolution"] = args.resolution
+
+        # Auto-grant live/primary non-root user if group is currently empty so authorized local user can log in once password is set
+        eligible, authorized = list_users_info()
+        if not authorized and "nrma" in eligible:
+            subprocess.run(["usermod", "-aG", RDP_GROUP, "nrma"], check=False)
+
+        ensure_tls_certificate()
+        update_xrdp_ini_port(port)
+        sync_firewall_rules(True, port, subnets, fw_mode)
+
+        cfg["enabled"] = True
+        cfg["port"] = port
+        cfg["firewall_mode"] = fw_mode
+        cfg["allowed_subnets"] = subnets
+        save_config(cfg)
+
+        subprocess.run(["systemctl", "enable", "xrdp-sesman.service", "xrdp.service"], check=True)
+        subprocess.run(["systemctl", "restart", "xrdp-sesman.service"], check=True)
+        subprocess.run(["systemctl", "restart", "xrdp.service"], check=True)
+        print(json.dumps(collect_status(), indent=2))
+        return 0
+
+    if args.subcmd == "disable":
+        port = int(cfg.get("port", 3389))
+        subprocess.run(["systemctl", "stop", "xrdp.service", "xrdp-sesman.service"], check=False)
+        subprocess.run(["systemctl", "disable", "xrdp.service", "xrdp-sesman.service"], check=False)
+        sync_firewall_rules(False, port, [], cfg.get("firewall_mode", "lan"))
+        cfg["enabled"] = False
+        save_config(cfg)
+        print(json.dumps(collect_status(), indent=2))
+        return 0
+
+    if args.subcmd == "set-port":
+        if not (1024 <= args.port <= 65535):
+            print("Error: port must be between 1024 and 65535.", file=sys.stderr)
+            return 2
+        cfg["port"] = args.port
+        save_config(cfg)
+        update_xrdp_ini_port(args.port)
+        if is_service_active("xrdp"):
+            sync_firewall_rules(
+                True,
+                args.port,
+                cfg.get("allowed_subnets", DEFAULT_PRIVATE_SUBNETS),
+                cfg.get("firewall_mode", "lan"),
+            )
+            subprocess.run(["systemctl", "restart", "xrdp.service"], check=True)
+        print(json.dumps(collect_status(), indent=2))
+        return 0
+
+    if args.subcmd == "set-firewall-mode":
+        cfg["firewall_mode"] = args.firewall_mode
+        save_config(cfg)
+        if is_service_active("xrdp"):
+            sync_firewall_rules(
+                True,
+                int(cfg.get("port", 3389)),
+                cfg.get("allowed_subnets", DEFAULT_PRIVATE_SUBNETS),
+                args.firewall_mode,
+            )
+        print(json.dumps(collect_status(), indent=2))
+        return 0
+
+    if args.subcmd == "set-resolution":
+        cfg["default_resolution"] = args.resolution
+        save_config(cfg)
+        print(json.dumps(collect_status(), indent=2))
+        return 0
+
+    if args.subcmd == "grant-user":
+        pw = pwd.getpwnam(args.username)
+        if pw.pw_uid < 1000:
+            print("Error: refusing to grant RDP access to root or system account (UID < 1000).", file=sys.stderr)
+            return 2
+        subprocess.run(["usermod", "-aG", RDP_GROUP, args.username], check=True)
+        print(json.dumps(collect_status(), indent=2))
+        return 0
+
+    if args.subcmd == "revoke-user":
+        subprocess.run(["gpasswd", "-d", args.username, RDP_GROUP], check=False, capture_output=True)
+        print(json.dumps(collect_status(), indent=2))
+        return 0
+
+    if args.subcmd == "set-user-password":
+        pw = pwd.getpwnam(args.username)
+        if pw.pw_uid < 1000:
+            print("Error: refusing to modify root or system account password through RDP manager.", file=sys.stderr)
+            return 2
+        secret = sys.stdin.readline().rstrip("\r\n")
+        if len(secret) < 8:
+            print("Error: password must be at least 8 characters.", file=sys.stderr)
+            return 2
+        proc = subprocess.run(
+            ["chpasswd"],
+            input=f"{args.username}:{secret}\n",
+            text=True,
+            capture_output=True,
+        )
+        secret = ""
+        if proc.returncode != 0:
+            print("Error: chpasswd failed.", file=sys.stderr)
+            return 1
+        print(json.dumps({"ok": True, "username": args.username}))
+        return 0
+
+    return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

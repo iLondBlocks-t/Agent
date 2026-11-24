@@ -1,19 +1,39 @@
 #!/bin/sh
 set -eu
 
+if [ -f build/live-build.env ]; then
+    # shellcheck disable=SC1091
+    . ./build/live-build.env
+fi
+
+DEBIAN_CODENAME="${NRMAOS_DEBIAN_CODENAME:-}"
+if [ -z "$DEBIAN_CODENAME" ] && [ -r /etc/os-release ]; then
+    # shellcheck disable=SC1091
+    . /etc/os-release
+    if [ "${ID:-}" = "debian" ] && [ -n "${VERSION_CODENAME:-}" ]; then
+        DEBIAN_CODENAME="$VERSION_CODENAME"
+    fi
+fi
+: "${DEBIAN_CODENAME:=trixie}"
+
 # Keep this file as the single source of live-build configuration.
 # `noauto` prevents lb config from recursively invoking this file.
 lb config noauto \
     --mode debian \
     --system live \
-    --architecture amd64 \
-    --distribution stable \
-    --linux-packages none \
+    --architectures amd64 \
+    --distribution "$DEBIAN_CODENAME" \
+    --linux-packages "linux-image" \
     --initsystem systemd \
-    --archive-areas main \
-    --binary-image iso-hybrid \
+    --archive-areas "main non-free-firmware" \
+    --binary-images iso-hybrid \
+    --bootloaders "syslinux,grub-efi" \
     --apt-recommends false \
-    --security false \
+    --security true \
+    --updates true \
     --debian-installer false \
-    --iso-application "nrmaOS Live" \
-    --iso-volume "NRMAOS_0_1_0"
+    --bootappend-live "boot=live components quiet hostname=nrmaos username=nrma console=ttyS0,115200n8 console=tty0" \
+    --iso-application "${NRMAOS_NAME:-nrmaOS} Live" \
+    --iso-publisher "nrmaOS Project" \
+    --iso-volume "${NRMAOS_ISO_VOLUME:-NRMAOS_0_1_0}" \
+    "${@}"

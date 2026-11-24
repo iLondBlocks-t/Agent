@@ -1,0 +1,76 @@
+#!/usr/bin/env python3
+"""CLI bridge for interacting with the running nrmaos-shell session over UNIX domain IPC."""
+
+import json
+import os
+import socket
+import sys
+
+
+def resolve_socket_path() -> str:
+    ipc_dir = f"/tmp/nrmaos-ipc-{os.getuid()}"
+    disp = os.environ.get("DISPLAY", ":0")
+    disp_num = disp.split(":", 1)[1].split(".", 1)[0] if ":" in disp else "0"
+    candidate = f"{ipc_dir}/shell-{disp_num or '0'}.sock"
+    if os.path.exists(candidate):
+        return candidate
+    return f"{ipc_dir}/shell.sock"
+
+
+def send_ipc(payload: dict) -> dict:
+    sock_path = resolve_socket_path()
+    if not os.path.exists(sock_path):
+        return {"ok": False, "error": f"nrmaos-shell IPC socket not found at {sock_path}"}
+    with socket.socket(socket.AF_UNIX, socket.SOCK_STREAM) as sock:
+        sock.settimeout(4.0)
+        sock.connect(sock_path)
+        sock.sendall((json.dumps(payload) + "\n").encode("utf-8"))
+        data = b""
+        while b"\n" not in data:
+            chunk = sock.recv(4096)
+            if not chunk:
+                break
+            data += chunk
+    return json.loads(data.decode("utf-8").strip())
+
+
+def main() -> int:
+    if len(sys.argv) < 2:
+        print(
+            "Usage: nrma-shellctl <status|launch|toggle-launcher|toggle-switcher|"
+            "toggle-control-center|toggle-notifications|reload-settings|set-theme|set-wallpaper|tile> [args...]",
+            file=sys.stderr,
+        )
+        return 2
+
+    sub = sys.argv[1]
+    if sub == "status":
+        resp = send_ipc({"cmd": "status"})
+    elif sub == "launch" and len(sys.argv) >= 3:
+        resp = send_ipc({"cmd": "launch", "app": sys.argv[2]})
+    elif sub == "toggle-launcher":
+        resp = send_ipc({"cmd": "toggle-overlay", "overlay": "launcher"})
+    elif sub == "toggle-switcher":
+        resp = send_ipc({"cmd": "toggle-overlay", "overlay": "switcher"})
+    elif sub == "toggle-control-center":
+        resp = send_ipc({"cmd": "toggle-overlay", "overlay": "controlCenter"})
+    elif sub == "toggle-notifications":
+        resp = send_ipc({"cmd": "toggle-overlay", "overlay": "notifications"})
+    elif sub == "reload-settings":
+        resp = send_ipc({"cmd": "reload-settings"})
+    elif sub == "set-theme" and len(sys.argv) >= 3:
+        resp = send_ipc({"cmd": "set-theme", "mode": sys.argv[2]})
+    elif sub == "set-wallpaper" and len(sys.argv) >= 3:
+        resp = send_ipc({"cmd": "set-wallpaper", "path": sys.argv[2]})
+    elif sub == "tile" and len(sys.argv) >= 4:
+        resp = send_ipc({"cmd": "tile", "xid": int(sys.argv[2], 0), "position": sys.argv[3]})
+    else:
+        print(f"Invalid command or missing arguments: {' '.join(sys.argv[1:])}", file=sys.stderr)
+        return 2
+
+    print(json.dumps(resp, indent=2))
+    return 0 if resp.get("ok") else 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

@@ -1,21 +1,40 @@
 # Troubleshooting
 
-## Build fails before downloading packages
+## Build Issues
 
-Check that the host has `live-build` and `debootstrap` installed, that it is amd64/x86_64, and that it has network access and sufficient free disk space. Preserve the complete build log; the last error line may not contain the root cause.
+### Building on Ubuntu Fails with Legacy `live-build` Options
+Ubuntu's `universe` archive ships an outdated `3.0~a57` snapshot of `live-build`. `./scripts/build-iso.sh` automatically detects non-Debian hosts and runs inside an official `debian:stable` Docker container when Docker is installed. Ensure Docker is running (`docker info`) or run the build on a native Debian `stable` `amd64` host.
 
-## Build fails while resolving packages
+### Insufficient Disk Space During `lb build`
+Building the chroot, Qt 6 compilation, and SquashFS compression require roughly 6–8 GiB of free disk space. Remove stale build state with `sudo lb clean --purge` before retrying.
 
-Debian package mirrors or the `stable` suite may be temporarily unavailable. Retry only after confirming the failure is not caused by a package name or configuration error. Keep the failure log and record the date and mirror.
+## Boot & Graphical Session Issues
 
-## ISO exists but does not boot
+### Black Screen or Slow Animations in Virtual Machines
+`nrmaos-session` automatically inspects the Mesa OpenGL renderer and `XRDP_SESSION` environment variable. When software rasterization (`llvmpipe`/`softpipe`) is detected, `picom` is skipped and `QSG_RENDER_LOOP=basic` + reduced motion timings are enabled automatically. You can inspect session logs at:
+- `~/.local/state/nrmaos/nrmaos-shell.log`
+- `~/.local/state/nrmaos/openbox.log`
+- `sudo journalctl -u lightdm --no-pager`
 
-An ISO file existing does not establish bootability. Verify its SHA256, test in QEMU with a virtual display, and check whether the boot menu appears. Try both BIOS and UEFI only if the image configuration includes the respective bootloader. Report the QEMU version and full error output.
+### Checking Shell Health from Terminal
+Run:
+```sh
+nrma-shellctl status
+```
+This queries the active `nrmaos-shell` UNIX socket (`/tmp/nrmaos-ipc-$(id -u)/shell-0.sock`) and prints live JSON telemetry.
 
-## Graphical session does not appear
+## Remote Desktop (RDP) Issues
 
-Check the live boot log and LightDM/Xorg logs from the VM. Confirm the package list contains the display server, display manager, window manager, Qt runtime modules, and nrmaOS shell. A text-only boot or an Openbox background without the shell is a failed desktop test, not a completed feature.
+### RDP Client Cannot Reach nrmaOS
+1. Remote Desktop is **disabled by default**. Open **nrma Settings → Remote Desktop** (or run `nrma-rdpctl status`) to confirm `Server Active: True`.
+2. Ensure your client IP falls within the configured **Trusted Firewall Subnets** (default RFC1918 local networks `10.0.0.0/8`, `172.16.0.0/12`, `192.168.0.0/16`).
+3. When using `xfreerdp` from Linux, pass `/sec:tls` because `xrdp` negotiates standard TLS 1.2/1.3 rather than Active Directory CredSSP/NLA by default.
 
-## No RDP or Wine option
+### Login Rejected Over RDP
+- Verify you are logging in as a **non-root** user (`UID >= 1000`) who has been authorized in **Settings → Remote Desktop** (`nrmaos-rdp` group) and has a local password configured (`nrma-rdpctl grant-user <user>`).
+- `root` login over RDP is permanently blocked by PAM (`pam_succeed_if.so uid >= 1000`) and `sesman.ini`.
 
-These features are not implemented in the first milestone. Do not install packages or expose network ports manually and assume that this creates a supported nrmaOS feature.
+## Windows `.exe` Compatibility Issues
+
+- Wine is optional and not preinstalled in the base ISO. Install it via **Settings → nrma Runtime → Install Optional Wine Engine** (`sudo nrma-runtime install-engine`) while connected to the internet.
+- Run `nrma-runtime inspect <file.exe>` first to check whether the executable is a supported 32-bit/64-bit user-mode application rather than an unsupported kernel driver.

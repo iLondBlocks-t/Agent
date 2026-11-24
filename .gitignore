@@ -1,0 +1,19 @@
+# live-build output and local chroot state
+binary/
+.chroot/
+.chroot.cache/
+*.iso
+*.hybrid.iso
+*.sha256
+build.log
+live-build.log
+
+# CMake build output
+shell/build/
+CMakeFiles/
+CMakeCache.txt
+
+# Editor and OS files
+.DS_Store
+*.swp
+*~

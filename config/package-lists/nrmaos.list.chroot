@@ -1,0 +1,24 @@
+# Minimal X11 session and file manager; deliberately no desktop task/metapackage.
+linux-image-amd64
+live-boot
+live-config
+systemd-sysv
+xserver-xorg-core
+xserver-xorg-input-libinput
+xinit
+x11-xserver-utils
+openbox
+lightdm
+lightdm-gtk-greeter
+dbus-x11
+xterm
+pcmanfm
+
+# Qt 6 GUI platform and runtime QML modules used by the nrmaOS shell.
+qml6-module-qtqml
+qml6-module-qtqml-workerscript
+qml6-module-qtquick
+qml6-module-qtquick-controls
+qml6-module-qtquick-templates
+qml6-module-qtquick-layouts
+qml6-module-qtquick-window

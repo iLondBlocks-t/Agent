@@ -1,0 +1,16 @@
+#!/bin/sh
+set -eu
+
+# Keep this file as the single source of live-build configuration.
+# `noauto` prevents lb config from recursively invoking this file.
+lb config noauto \
+    --mode debian \
+    --system live \
+    --architecture amd64 \
+    --distribution stable \
+    --archive-areas main \
+    --binary-image iso-hybrid \
+    --apt-recommends false \
+    --debian-installer none \
+    --iso-application "nrmaOS Live" \
+    --iso-volume "NRMAOS_0_1_0"

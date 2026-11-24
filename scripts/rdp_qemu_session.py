@@ -527,12 +527,36 @@ def secure_wipe_path(path: Path) -> None:
         shutil.rmtree(path, ignore_errors=True)
 
 
-def stop_qemu_pid(pid: int) -> None:
+def _reap_if_child(pid: int) -> None:
+    try:
+        os.waitpid(pid, os.WNOHANG)
+    except ChildProcessError:
+        pass
+    except OSError:
+        pass
+
+
+def pid_alive(pid: int) -> bool:
+    """True when `pid` exists and is not a zombie (reaps it when it is our own child)."""
     if pid <= 1:
-        return
+        return False
+    _reap_if_child(pid)
     try:
         os.kill(pid, 0)
     except OSError:
+        return False
+    try:
+        stat = Path(f"/proc/{pid}/stat").read_text(encoding="utf-8", errors="replace")
+        state = stat.rsplit(")", 1)[1].split()[0]
+        if state in ("Z", "X"):
+            return False
+    except (OSError, IndexError):
+        pass
+    return True
+
+
+def stop_qemu_pid(pid: int) -> None:
+    if not pid_alive(pid):
         return
     try:
         os.kill(pid, signal.SIGTERM)
@@ -540,15 +564,16 @@ def stop_qemu_pid(pid: int) -> None:
         return
     deadline = time.monotonic() + 8.0
     while time.monotonic() < deadline:
-        try:
-            os.kill(pid, 0)
-            time.sleep(0.3)
-        except OSError:
+        if not pid_alive(pid):
             return
+        time.sleep(0.3)
     try:
         os.kill(pid, signal.SIGKILL)
     except OSError:
-        pass
+        return
+    deadline = time.monotonic() + 5.0
+    while time.monotonic() < deadline and pid_alive(pid):
+        time.sleep(0.2)
 
 
 def cmd_preflight(args: argparse.Namespace) -> int:
@@ -645,13 +670,18 @@ def boot_and_bootstrap_session(args: argparse.Namespace) -> tuple[dict, QemuVirt
         f"[1/6] Booting nrmaOS ISO ({iso_path.name}) in headless QEMU ({accel_name}, {cpus} vCPUs, {memory_mib} MiB RAM)...",
         flush=True,
     )
-    qemu_proc = subprocess.Popen(
-        qemu_cmd,
-        stdin=subprocess.DEVNULL,
-        stdout=subprocess.DEVNULL,
-        stderr=subprocess.PIPE,
-        start_new_session=True,
-    )
+    # QEMU must outlive this `start` step, so its stderr goes to a private log file rather than a
+    # pipe (a pipe would break with EPIPE/SIGPIPE once this orchestrator process exits).
+    qemu_stderr_path = state_dir / "qemu-stderr.log"
+    with qemu_stderr_path.open("wb") as qemu_stderr_fh:
+        os.chmod(qemu_stderr_path, 0o600)
+        qemu_proc = subprocess.Popen(
+            qemu_cmd,
+            stdin=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=qemu_stderr_fh,
+            start_new_session=True,
+        )
     pid_file.write_text(f"{qemu_proc.pid}\n", encoding="utf-8")
     os.chmod(pid_file, 0o600)
 
@@ -661,7 +691,7 @@ def boot_and_bootstrap_session(args: argparse.Namespace) -> tuple[dict, QemuVirt
             os.chmod(qa_sock, 0o600)
             break
         if qemu_proc.poll() is not None:
-            err = (qemu_proc.stderr.read() if qemu_proc.stderr else b"").decode("utf-8", errors="replace")
+            err = qemu_stderr_path.read_text(encoding="utf-8", errors="replace")[-4000:]
             raise BootstrapError(f"QEMU exited immediately (rc={qemu_proc.returncode}): {err}")
         time.sleep(0.1)
 
@@ -927,9 +957,7 @@ def cmd_keepalive(args: argparse.Namespace) -> int:
     )
 
     while not stop_requested and time.monotonic() < deadline:
-        try:
-            os.kill(qemu_pid, 0)
-        except OSError:
+        if not pid_alive(qemu_pid):
             raise BootstrapError("QEMU VM process exited unexpectedly.")
 
         now = time.monotonic()
@@ -968,12 +996,15 @@ def cmd_cleanup(args: argparse.Namespace) -> int:
             pass
 
     pid_file = state_dir / "qemu.pid"
+    qemu_pid = 0
     if pid_file.is_file():
         try:
-            pid = int(pid_file.read_text(encoding="utf-8").strip())
-            stop_qemu_pid(pid)
+            qemu_pid = int(pid_file.read_text(encoding="utf-8").strip())
+            stop_qemu_pid(qemu_pid)
         except Exception:
             pass
+    if qemu_pid and pid_alive(qemu_pid):
+        raise BootstrapError(f"QEMU process {qemu_pid} is still running after SIGTERM/SIGKILL.")
 
     if state_dir.exists():
         secure_wipe_path(state_dir)
@@ -1191,13 +1222,18 @@ def cmd_selftest(args: argparse.Namespace) -> int:
         )
         cmd_cleanup(cleanup_ns)
 
-        assert not state_dir.exists(), "Cleanup did not remove state_dir"
-        with_err = False
+        assert not state_dir.exists(), "Cleanup did not remove state_dir (pid file, socket, session metadata)"
+        assert not pid_alive(qemu_pid), f"QEMU PID {qemu_pid} still alive after cleanup!"
+        port_closed = False
         try:
-            os.kill(qemu_pid, 0)
+            with socket.create_connection(("127.0.0.1", int(args.host_port)), timeout=2.0):
+                pass
         except OSError:
-            with_err = True
-        assert with_err, f"QEMU PID {qemu_pid} still alive after cleanup!"
+            port_closed = True
+        assert port_closed, f"Host forward 127.0.0.1:{args.host_port} still accepting connections after cleanup!"
+        password = ""
+        pw_holder.clear()
+        print("Selftest: cleanup OK (QEMU stopped, host forward closed, state wiped)", flush=True)
 
         print("PASS: rdp_qemu_session.py full QEMU + age + TLS + FreeRDP login/reconnect + cleanup selftest!", flush=True)
         return 0

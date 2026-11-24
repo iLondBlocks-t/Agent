@@ -1235,7 +1235,14 @@ def cmd_selftest(args: argparse.Namespace) -> int:
         pw_holder.clear()
         print("Selftest: cleanup OK (QEMU stopped, host forward closed, state wiped)", flush=True)
 
-        print("PASS: rdp_qemu_session.py full QEMU + age + TLS + FreeRDP login/reconnect + cleanup selftest!", flush=True)
+        result_txt = (
+            f"qemu_accel={meta['qemu_accel']} host_forward=127.0.0.1:{args.host_port} "
+            f"tls_sha256={meta['tls_fingerprint_sha256']} age_roundtrip=ok summary_password_leak=none "
+            f"rdp_login_1=ok reconnect_same_xorgxrdp_pid={remote_pid_1} cleanup=qemu_stopped,port_closed,state_wiped"
+        )
+        print(f"PASS: rdp_qemu_session.py selftest: {result_txt}", flush=True)
+        if os.environ.get("GITHUB_ACTIONS") == "true":
+            print(f"::notice title=nrmaOS RDP bootstrap selftest passed::{result_txt}", flush=True)
         return 0
     finally:
         if state_dir.exists():

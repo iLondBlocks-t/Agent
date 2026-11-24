@@ -37,6 +37,11 @@ jobs:
       - name: Run static and unit tests
         run: ./scripts/test-source.sh
 
+      - name: Lint GitHub Actions workflows (actionlint)
+        run: |
+          bash <(curl -fsSL https://raw.githubusercontent.com/rhysd/actionlint/v1.7.7/scripts/download-actionlint.bash) 1.7.7 "$RUNNER_TEMP"
+          "$RUNNER_TEMP/actionlint" -color -shellcheck= -pyflakes= .github/workflows/build.yml .github/workflows/nrmaos-rdp.yml
+
       - name: Fast C++17 & Qt6/QML build and offscreen smoke check
         run: |
           sudo apt-get update

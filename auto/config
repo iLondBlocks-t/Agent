@@ -14,6 +14,6 @@ lb config noauto \
     --binary-image iso-hybrid \
     --apt-recommends false \
     --security false \
-    --debian-installer none \
+    --debian-installer false \
     --iso-application "nrmaOS Live" \
     --iso-volume "NRMAOS_0_1_0"

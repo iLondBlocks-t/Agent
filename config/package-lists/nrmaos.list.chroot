@@ -11,6 +11,7 @@ pkexec
 procps
 iproute2
 iputils-ping
+curl
 ca-certificates
 openssl
 ufw

@@ -23,11 +23,13 @@ if [ -f /etc/pam.d/xrdp-sesman ]; then
     fi
 fi
 
-# 3. Harden /etc/xrdp/sesman.ini: forbid root login, enforce nrmaos-rdp group check
+# 3. Harden /etc/xrdp/sesman.ini: forbid root login, enforce nrmaos-rdp group check, preserve sessions across reconnects
 if [ -f /etc/xrdp/sesman.ini ]; then
     sed -i 's/^AllowRootLogin=.*/AllowRootLogin=false/g' /etc/xrdp/sesman.ini
     sed -i 's/^AlwaysGroupCheck=.*/AlwaysGroupCheck=true/g' /etc/xrdp/sesman.ini
     sed -i 's/^TerminalServerUsers=.*/TerminalServerUsers=nrmaos-rdp/g' /etc/xrdp/sesman.ini
+    sed -i 's/^KillDisconnected=.*/KillDisconnected=false/g' /etc/xrdp/sesman.ini
+    sed -i 's/^Policy=.*/Policy=Default/g' /etc/xrdp/sesman.ini
 fi
 
 # 4. Harden /etc/xrdp/xrdp.ini: enforce TLSv1.2/TLSv1.3 and high encryption
@@ -48,6 +50,7 @@ cat > /etc/nrmaos/rdp.json <<'EOF'
 {
   "enabled": false,
   "port": 3389,
+  "firewall_mode": "lan",
   "allowed_subnets": [
     "10.0.0.0/8",
     "172.16.0.0/12",

@@ -1,6 +1,7 @@
 #include "SettingsBackend.h"
 
 #include <QClipboard>
+#include <QDesktopServices>
 #include <QDir>
 #include <QFile>
 #include <QFileInfo>
@@ -12,6 +13,7 @@
 #include <QSaveFile>
 #include <QStandardPaths>
 #include <QSysInfo>
+#include <QUrl>
 
 #include <unistd.h>
 
@@ -23,6 +25,7 @@ SettingsBackend::SettingsBackend(QObject *parent)
     loadAboutInfo();
     refreshDisplayModes();
     refreshRdpStatus();
+    refreshTailscaleStatus();
     refreshRuntimeStatus();
 }
 
@@ -226,6 +229,7 @@ void SettingsBackend::refreshAll()
     loadWallpapers();
     refreshDisplayModes();
     refreshRdpStatus();
+    refreshTailscaleStatus();
     refreshRuntimeStatus();
     emit appearanceChanged();
 }
@@ -300,10 +304,77 @@ bool SettingsBackend::setDisplayResolution(const QString &mode)
 
 void SettingsBackend::copyToClipboard(const QString &text)
 {
+    if (text.isEmpty()) {
+        return;
+    }
     if (QClipboard *cb = QGuiApplication::clipboard()) {
         cb->setText(text);
         setFeedback(QStringLiteral("Copied to clipboard: ") + text);
     }
+}
+
+void SettingsBackend::openExternalUrl(const QString &url)
+{
+    const QString trimmed = url.trimmed();
+    if (trimmed.isEmpty()) {
+        return;
+    }
+    if (!QDesktopServices::openUrl(QUrl(trimmed))) {
+        copyToClipboard(trimmed);
+        setFeedback(QStringLiteral("No browser installed; copied login URL to clipboard"));
+    } else {
+        setFeedback(QStringLiteral("Opened login URL"));
+    }
+}
+
+bool SettingsBackend::runPrivilegedHelper(
+    const QString &helperName,
+    const QStringList &args,
+    const QByteArray &stdinData,
+    int timeoutMs)
+{
+    const QString helperPath = QStandardPaths::findExecutable(helperName);
+    if (helperPath.isEmpty()) {
+        setFeedback(helperName + QStringLiteral(" is not installed"));
+        return false;
+    }
+
+    QString prog = helperPath;
+    QStringList fullArgs = args;
+    if (::geteuid() != 0) {
+        const QString pkexec = QStandardPaths::findExecutable(QStringLiteral("pkexec"));
+        const QString sudoBin = QStandardPaths::findExecutable(QStringLiteral("sudo"));
+        if (!pkexec.isEmpty()) {
+            prog = pkexec;
+            fullArgs.prepend(helperPath);
+        } else if (!sudoBin.isEmpty()) {
+            prog = sudoBin;
+            fullArgs.prepend(helperPath);
+            fullArgs.prepend(QStringLiteral("-n"));
+        }
+    }
+
+    QProcess proc;
+    proc.start(prog, fullArgs);
+    if (!proc.waitForStarted(3000)) {
+        setFeedback(QStringLiteral("Failed starting privileged helper ") + helperName);
+        return false;
+    }
+    if (!stdinData.isEmpty()) {
+        proc.write(stdinData);
+    }
+    proc.closeWriteChannel();
+
+    if (!proc.waitForFinished(timeoutMs)) {
+        setFeedback(helperName + QStringLiteral(" operation timed out"));
+        return false;
+    }
+    if (proc.exitCode() != 0) {
+        const QString err = QString::fromUtf8(proc.readAllStandardError()).trimmed();
+        setFeedback(err.isEmpty() ? QStringLiteral("Operation declined or failed") : err);
+        return false;
+    }
+    return true;
 }
 
 void SettingsBackend::refreshRdpStatus()
@@ -314,7 +385,8 @@ void SettingsBackend::refreshRdpStatus()
             {QStringLiteral("installed"), false},
             {QStringLiteral("enabled"), false},
             {QStringLiteral("active"), false},
-            {QStringLiteral("port"), 3389}
+            {QStringLiteral("port"), 3389},
+            {QStringLiteral("firewall_mode"), QStringLiteral("lan")}
         };
         emit rdpChanged();
         return;
@@ -333,66 +405,42 @@ void SettingsBackend::refreshRdpStatus()
 
 bool SettingsBackend::runRdpCtlPrivileged(const QStringList &args, const QByteArray &stdinData)
 {
-    const QString rdpctl = QStandardPaths::findExecutable(QStringLiteral("nrma-rdpctl"));
-    if (rdpctl.isEmpty()) {
-        setFeedback(QStringLiteral("nrma-rdpctl is not installed"));
-        return false;
+    const bool ok = runPrivilegedHelper(QStringLiteral("nrma-rdpctl"), args, stdinData, 15000);
+    if (ok) {
+        refreshRdpStatus();
     }
-
-    QString prog = rdpctl;
-    QStringList fullArgs = args;
-    if (::geteuid() != 0) {
-        const QString pkexec = QStandardPaths::findExecutable(QStringLiteral("pkexec"));
-        const QString sudoBin = QStandardPaths::findExecutable(QStringLiteral("sudo"));
-        if (!pkexec.isEmpty()) {
-            prog = pkexec;
-            fullArgs.prepend(rdpctl);
-        } else if (!sudoBin.isEmpty()) {
-            prog = sudoBin;
-            fullArgs.prepend(rdpctl);
-            fullArgs.prepend(QStringLiteral("-n"));
-        }
-    }
-
-    QProcess proc;
-    proc.start(prog, fullArgs);
-    if (!proc.waitForStarted(3000)) {
-        setFeedback(QStringLiteral("Failed starting privileged helper"));
-        return false;
-    }
-    if (!stdinData.isEmpty()) {
-        proc.write(stdinData);
-    }
-    proc.closeWriteChannel();
-
-    if (!proc.waitForFinished(15000)) {
-        setFeedback(QStringLiteral("Remote Desktop operation timed out"));
-        return false;
-    }
-    if (proc.exitCode() != 0) {
-        const QString err = QString::fromUtf8(proc.readAllStandardError()).trimmed();
-        setFeedback(err.isEmpty() ? QStringLiteral("Operation declined or failed") : err);
-        return false;
-    }
-
-    refreshRdpStatus();
-    return true;
+    return ok;
 }
 
-bool SettingsBackend::setRdpEnabled(bool enable, int port, const QString &subnetsCsv, const QString &resolution)
+bool SettingsBackend::setRdpEnabled(
+    bool enable,
+    int port,
+    const QString &subnetsCsv,
+    const QString &resolution,
+    const QString &firewallMode)
 {
     if (enable) {
-        QStringList args{QStringLiteral("enable"), QStringLiteral("--port"), QString::number(port)};
-        const QStringList parts = subnetsCsv.split(QLatin1Char(','), Qt::SkipEmptyParts);
-        for (const QString &cidr : parts) {
-            args << QStringLiteral("--subnet") << cidr.trimmed();
+        const QString mode = firewallMode.trimmed().isEmpty() ? QStringLiteral("lan") : firewallMode.trimmed();
+        QStringList args{
+            QStringLiteral("enable"),
+            QStringLiteral("--port"),
+            QString::number(port),
+            QStringLiteral("--firewall-mode"),
+            mode
+        };
+        if (mode != QStringLiteral("tailscale")) {
+            const QStringList parts = subnetsCsv.split(QLatin1Char(','), Qt::SkipEmptyParts);
+            for (const QString &cidr : parts) {
+                args << QStringLiteral("--subnet") << cidr.trimmed();
+            }
         }
         if (!resolution.isEmpty()) {
             args << QStringLiteral("--resolution") << resolution;
         }
         const bool ok = runRdpCtlPrivileged(args);
         if (ok) {
-            setFeedback(QStringLiteral("Remote Desktop enabled on port ") + QString::number(port));
+            setFeedback(QStringLiteral("Remote Desktop enabled on port ") + QString::number(port)
+                        + QStringLiteral(" (mode: ") + mode + QLatin1Char(')'));
         }
         return ok;
     }
@@ -408,6 +456,19 @@ bool SettingsBackend::setRdpPort(int port)
     const bool ok = runRdpCtlPrivileged({QStringLiteral("set-port"), QString::number(port)});
     if (ok) {
         setFeedback(QStringLiteral("Updated RDP port to ") + QString::number(port));
+    }
+    return ok;
+}
+
+bool SettingsBackend::setRdpFirewallMode(const QString &mode)
+{
+    const QString cleaned = mode.trimmed();
+    if (cleaned.isEmpty()) {
+        return false;
+    }
+    const bool ok = runRdpCtlPrivileged({QStringLiteral("set-firewall-mode"), cleaned});
+    if (ok) {
+        setFeedback(QStringLiteral("Updated RDP firewall mode to ") + cleaned);
     }
     return ok;
 }
@@ -443,6 +504,69 @@ bool SettingsBackend::setRdpUserPassword(const QString &username, const QString 
     secretBytes.fill('\0');
     if (ok) {
         setFeedback(QStringLiteral("Updated local account password for ") + username);
+    }
+    return ok;
+}
+
+void SettingsBackend::refreshTailscaleStatus()
+{
+    const QString tsctl = QStandardPaths::findExecutable(QStringLiteral("nrma-tailscalectl"));
+    if (tsctl.isEmpty()) {
+        m_tailscaleStatus = QVariantMap{
+            {QStringLiteral("installed"), false},
+            {QStringLiteral("daemon_active"), false},
+            {QStringLiteral("connected"), false},
+            {QStringLiteral("backend_state"), QStringLiteral("NotInstalled")},
+            {QStringLiteral("device_name"), QSysInfo::machineHostName()}
+        };
+        emit tailscaleChanged();
+        return;
+    }
+    QProcess proc;
+    proc.start(tsctl, {QStringLiteral("status"), QStringLiteral("--json")});
+    if (proc.waitForFinished(6000) && proc.exitCode() == 0) {
+        const QJsonDocument doc = QJsonDocument::fromJson(proc.readAllStandardOutput());
+        if (doc.isObject()) {
+            m_tailscaleStatus = doc.object().toVariantMap();
+            emit tailscaleChanged();
+        }
+    }
+}
+
+bool SettingsBackend::connectTailscale(const QString &hostname)
+{
+    QStringList args{QStringLiteral("connect")};
+    if (!hostname.trimmed().isEmpty()) {
+        args << QStringLiteral("--hostname") << hostname.trimmed();
+    }
+    const bool ok = runPrivilegedHelper(QStringLiteral("nrma-tailscalectl"), args, {}, 20000);
+    refreshTailscaleStatus();
+    refreshRdpStatus();
+    if (ok) {
+        if (m_tailscaleStatus.value(QStringLiteral("connected")).toBool()) {
+            setFeedback(QStringLiteral("Connected to Tailnet: ")
+                        + m_tailscaleStatus.value(QStringLiteral("tailnet_ip")).toString());
+        } else if (!m_tailscaleStatus.value(QStringLiteral("auth_url")).toString().isEmpty()) {
+            setFeedback(QStringLiteral("Complete Tailscale sign-in using the displayed authentication URL"));
+        } else {
+            setFeedback(QStringLiteral("Tailscale service started; checking authentication state..."));
+        }
+    }
+    return ok;
+}
+
+bool SettingsBackend::disconnectTailscale(bool stopDaemon)
+{
+    QStringList args{QStringLiteral("disconnect")};
+    if (stopDaemon) {
+        args << QStringLiteral("--stop-daemon");
+    }
+    const bool ok = runPrivilegedHelper(QStringLiteral("nrma-tailscalectl"), args, {}, 15000);
+    refreshTailscaleStatus();
+    refreshRdpStatus();
+    if (ok) {
+        setFeedback(stopDaemon ? QStringLiteral("Disconnected Tailscale and stopped background service")
+                               : QStringLiteral("Disconnected from Tailnet"));
     }
     return ok;
 }

@@ -109,6 +109,7 @@ Prebuilt ISO images, `.sha256` checksums, and `nrmaos-verification-report.json` 
 - [Building nrmaOS](docs/building.md)
 - [Booting, QEMU & USB Media Guide](docs/installation.md)
 - [Remote Desktop (RDP) Administration & Security](docs/rdp.md)
+- [One-Click Tailscale Remote Desktop (GitHub Actions)](docs/tailscale-rdp.md)
 - [Windows EXE Compatibility (`nrma Runtime`)](docs/wine-compatibility.md)
 - [Troubleshooting](docs/troubleshooting.md)
 - [Security Policy](SECURITY.md)

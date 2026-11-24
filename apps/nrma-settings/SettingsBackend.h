@@ -21,6 +21,7 @@ class SettingsBackend final : public QObject
     Q_PROPERTY(QStringList availableResolutions READ availableResolutions NOTIFY displayChanged)
 
     Q_PROPERTY(QVariantMap rdpStatus READ rdpStatus NOTIFY rdpChanged)
+    Q_PROPERTY(QVariantMap tailscaleStatus READ tailscaleStatus NOTIFY tailscaleChanged)
     Q_PROPERTY(QVariantMap runtimeStatus READ runtimeStatus NOTIFY runtimeChanged)
     Q_PROPERTY(QVariantMap inspectedExe READ inspectedExe NOTIFY inspectedExeChanged)
     Q_PROPERTY(QVariantMap aboutInfo READ aboutInfo CONSTANT)
@@ -51,6 +52,7 @@ public:
     QString currentResolution() const { return m_currentResolution; }
     QStringList availableResolutions() const { return m_availableResolutions; }
     QVariantMap rdpStatus() const { return m_rdpStatus; }
+    QVariantMap tailscaleStatus() const { return m_tailscaleStatus; }
     QVariantMap runtimeStatus() const { return m_runtimeStatus; }
     QVariantMap inspectedExe() const { return m_inspectedExe; }
     QVariantMap aboutInfo() const { return m_aboutInfo; }
@@ -58,18 +60,30 @@ public:
 
     Q_INVOKABLE void refreshAll();
     Q_INVOKABLE void refreshRdpStatus();
+    Q_INVOKABLE void refreshTailscaleStatus();
     Q_INVOKABLE void refreshRuntimeStatus();
     Q_INVOKABLE void refreshDisplayModes();
 
     Q_INVOKABLE bool setDisplayResolution(const QString &mode);
     Q_INVOKABLE void copyToClipboard(const QString &text);
+    Q_INVOKABLE void openExternalUrl(const QString &url);
 
     // Remote Desktop management via nrma-rdpctl
-    Q_INVOKABLE bool setRdpEnabled(bool enable, int port, const QString &subnetsCsv, const QString &resolution);
+    Q_INVOKABLE bool setRdpEnabled(
+        bool enable,
+        int port,
+        const QString &subnetsCsv,
+        const QString &resolution,
+        const QString &firewallMode = QStringLiteral("lan"));
     Q_INVOKABLE bool setRdpPort(int port);
+    Q_INVOKABLE bool setRdpFirewallMode(const QString &mode);
     Q_INVOKABLE bool setRdpResolution(const QString &resolution);
     Q_INVOKABLE bool setRdpUserAccess(const QString &username, bool authorized);
     Q_INVOKABLE bool setRdpUserPassword(const QString &username, const QString &password);
+
+    // Optional native Tailscale mesh VPN via nrma-tailscalectl
+    Q_INVOKABLE bool connectTailscale(const QString &hostname = QString());
+    Q_INVOKABLE bool disconnectTailscale(bool stopDaemon = false);
 
     // nrma Runtime (EXE compatibility) via nrma-runtime
     Q_INVOKABLE void inspectExecutable(const QString &filePath);
@@ -85,6 +99,7 @@ signals:
     void wallpapersChanged();
     void displayChanged();
     void rdpChanged();
+    void tailscaleChanged();
     void runtimeChanged();
     void inspectedExeChanged();
     void feedbackChanged();
@@ -96,6 +111,7 @@ private:
     void loadWallpapers();
     void loadAboutInfo();
     void setFeedback(const QString &msg);
+    bool runPrivilegedHelper(const QString &helperName, const QStringList &args, const QByteArray &stdinData = {}, int timeoutMs = 15000);
     bool runRdpCtlPrivileged(const QStringList &args, const QByteArray &stdinData = {});
 
     QString m_initialPage = QStringLiteral("appearance");
@@ -111,6 +127,7 @@ private:
     QStringList m_availableResolutions;
 
     QVariantMap m_rdpStatus;
+    QVariantMap m_tailscaleStatus;
     QVariantMap m_runtimeStatus;
     QVariantMap m_inspectedExe;
     QVariantMap m_aboutInfo;

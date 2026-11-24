@@ -8,8 +8,19 @@ if [ ! -f "$SOURCE_DIR/shell/CMakeLists.txt" ]; then
 fi
 
 export DEBIAN_FRONTEND=noninteractive
+. /etc/os-release
+TS_CODENAME="${VERSION_CODENAME:-trixie}"
+install -d -m 0755 /usr/share/keyrings /etc/apt/sources.list.d
+curl -fsSL --retry 3 "https://pkgs.tailscale.com/stable/debian/${TS_CODENAME}.noarmor.gpg" \
+    -o /usr/share/keyrings/tailscale-archive-keyring.gpg
+chmod 0644 /usr/share/keyrings/tailscale-archive-keyring.gpg
+curl -fsSL --retry 3 "https://pkgs.tailscale.com/stable/debian/${TS_CODENAME}.tailscale-keyring.list" \
+    -o /etc/apt/sources.list.d/tailscale.list
+chmod 0644 /etc/apt/sources.list.d/tailscale.list
+
 apt-get update
 apt-get install -y --no-install-recommends \
+    tailscale tailscale-archive-keyring \
     make cmake g++ pkg-config libx11-dev qt6-base-dev qt6-declarative-dev qt6-declarative-dev-tools
 
 cmake -S "$SOURCE_DIR/shell" -B /tmp/nrmaos-shell-build \
@@ -108,6 +119,14 @@ fi
 if [ -x /usr/lib/nrmaos/setup-runtime.sh ]; then
     /usr/lib/nrmaos/setup-runtime.sh
 fi
+
+# Keep native Tailscale disconnected and disabled by default, with zero node keys/state in the ISO.
+command -v tailscale >/dev/null 2>&1
+command -v tailscaled >/dev/null 2>&1 || [ -x /usr/sbin/tailscaled ]
+systemctl stop tailscaled.service >/dev/null 2>&1 || true
+systemctl disable tailscaled.service >/dev/null 2>&1 || true
+rm -f /etc/systemd/system/multi-user.target.wants/tailscaled.service
+rm -rf /var/lib/tailscale/* /etc/default/tailscaled.authkey 2>/dev/null || true
 
 # Purge build-only toolchains so the final SquashFS image stays small.
 apt-get purge -y --auto-remove \

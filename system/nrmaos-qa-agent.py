@@ -37,9 +37,13 @@ def handle_request(req: dict) -> dict:
             run_cmd = ["runuser", "-u", str(user), "--"] + cmd
         for k, v in (req.get("env") or {}).items():
             env[str(k)] = str(v)
+        stdin_data = req.get("stdin")
+        if stdin_data is not None:
+            stdin_data = str(stdin_data)
         try:
             proc = subprocess.run(
                 run_cmd,
+                input=stdin_data,
                 capture_output=True,
                 text=True,
                 timeout=timeout,

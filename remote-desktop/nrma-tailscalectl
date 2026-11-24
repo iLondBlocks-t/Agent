@@ -1,0 +1,234 @@
+#!/usr/bin/env python3
+"""nrma-tailscalectl — Native optional Tailscale service controller for nrmaOS.
+
+Design & security invariants:
+- Tailscale starts disconnected and disabled by default in nrmaOS.
+- No authentication keys, node keys, or user credentials are ever baked into the ISO.
+- Supports the standard interactive browser authentication flow (exposing AuthURL for
+  nrma Settings or desktop browsers) without accepting secrets on argv.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+from pathlib import Path
+import re
+import shutil
+import socket
+import subprocess
+import sys
+import time
+
+TAILSCALE_INTERFACE = "tailscale0"
+HOSTNAME_RE = re.compile(r"^[a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?$")
+
+
+def require_root(reexec_args: list[str] | None = None) -> None:
+    if os.geteuid() == 0:
+        return
+    if reexec_args and os.environ.get("DISPLAY"):
+        pkexec = shutil.which("pkexec")
+        if pkexec:
+            rc = subprocess.call([pkexec, "/usr/bin/nrma-tailscalectl", *reexec_args])
+            raise SystemExit(rc)
+    print("Error: managing Tailscale daemon state requires root privileges.", file=sys.stderr)
+    raise SystemExit(1)
+
+
+def is_service_active(unit: str) -> bool:
+    systemctl = shutil.which("systemctl")
+    if not systemctl:
+        return False
+    return subprocess.run([systemctl, "is-active", "--quiet", unit]).returncode == 0
+
+
+def is_service_enabled(unit: str) -> bool:
+    systemctl = shutil.which("systemctl")
+    if not systemctl:
+        return False
+    return (
+        subprocess.run(
+            [systemctl, "is-enabled", "--quiet", unit],
+            capture_output=True,
+        ).returncode
+        == 0
+    )
+
+
+def parse_tailscale_status_json(raw_json: str, fallback_hostname: str = "") -> dict:
+    data = json.loads(raw_json)
+    backend_state = str(data.get("BackendState") or "Stopped")
+    auth_url = str(data.get("AuthURL") or "")
+    self_node = data.get("Self") or {}
+    current_tailnet = data.get("CurrentTailnet") or {}
+
+    raw_ips = self_node.get("TailscaleIPs") or data.get("TailscaleIPs") or []
+    ips = [str(ip) for ip in raw_ips if ip]
+    ipv4 = next((ip for ip in ips if ":" not in ip), "")
+    ipv6 = next((ip for ip in ips if ":" in ip), "")
+
+    dns_name = str(self_node.get("DNSName") or "").rstrip(".")
+    magic_dns_enabled = bool(current_tailnet.get("MagicDNSEnabled", bool(dns_name)))
+    magic_dns_name = dns_name if (magic_dns_enabled and dns_name) else ""
+
+    device_name = str(self_node.get("HostName") or fallback_hostname or socket.gethostname() or "nrmaos")
+    connected = backend_state == "Running" and bool(ips)
+
+    return {
+        "backend_state": backend_state,
+        "connected": connected,
+        "needs_login": backend_state in ("NeedsLogin", "NeedsMachineAuth") or bool(auth_url),
+        "auth_url": auth_url,
+        "device_name": device_name,
+        "tailnet_name": str(current_tailnet.get("Name") or ""),
+        "tailnet_ip": ipv4,
+        "tailnet_ipv6": ipv6,
+        "tailscale_ips": ips,
+        "magic_dns_enabled": magic_dns_enabled,
+        "magic_dns_name": magic_dns_name,
+        "version": str(data.get("Version") or ""),
+        "health": [str(x) for x in (data.get("Health") or [])],
+    }
+
+
+def collect_status() -> dict:
+    ts_bin = shutil.which("tailscale")
+    tsd_bin = shutil.which("tailscaled") or (
+        "/usr/sbin/tailscaled" if Path("/usr/sbin/tailscaled").exists() else None
+    )
+    installed = bool(ts_bin and tsd_bin)
+    daemon_active = is_service_active("tailscaled.service")
+    daemon_enabled = is_service_enabled("tailscaled.service")
+    iface_present = Path(f"/sys/class/net/{TAILSCALE_INTERFACE}").exists()
+    default_host = socket.gethostname() or "nrmaos"
+
+    base = {
+        "installed": installed,
+        "daemon_active": daemon_active,
+        "daemon_enabled": daemon_enabled,
+        "interface": TAILSCALE_INTERFACE,
+        "interface_present": iface_present,
+        "backend_state": "NotInstalled" if not installed else ("Stopped" if not daemon_active else "Starting"),
+        "connected": False,
+        "needs_login": False,
+        "auth_url": "",
+        "device_name": default_host,
+        "tailnet_name": "",
+        "tailnet_ip": "",
+        "tailnet_ipv6": "",
+        "tailscale_ips": [],
+        "magic_dns_enabled": False,
+        "magic_dns_name": "",
+        "version": "",
+        "health": [],
+    }
+
+    if installed and daemon_active and ts_bin:
+        proc = subprocess.run([ts_bin, "status", "--json"], capture_output=True, text=True, timeout=6)
+        if proc.returncode == 0 and proc.stdout.strip():
+            try:
+                base.update(parse_tailscale_status_json(proc.stdout, fallback_hostname=default_host))
+            except Exception:
+                pass
+    return base
+
+
+def cmd_connect(hostname: str | None) -> int:
+    ts_bin = shutil.which("tailscale")
+    if not ts_bin:
+        print("Error: tailscale package is not installed.", file=sys.stderr)
+        return 1
+
+    if hostname and not HOSTNAME_RE.match(hostname):
+        print("Error: invalid Tailscale hostname (use 1-63 alphanumeric/hyphen characters).", file=sys.stderr)
+        return 2
+
+    subprocess.run(["systemctl", "enable", "--now", "tailscaled.service"], check=True)
+
+    # Wait briefly for tailscaled socket readiness
+    for _ in range(12):
+        st = collect_status()
+        if st["daemon_active"] and st["backend_state"] != "Starting":
+            break
+        time.sleep(0.4)
+
+    up_cmd = [ts_bin, "up", "--qr=false"]
+    if hostname:
+        up_cmd.append(f"--hostname={hostname}")
+
+    # Spawn interactive/login flow detached so GUI callers never hang waiting for browser login;
+    # tailscaled immediately populates AuthURL in `tailscale status --json` when login is required.
+    subprocess.Popen(
+        up_cmd,
+        stdin=subprocess.DEVNULL,
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+        start_new_session=True,
+    )
+
+    deadline = time.monotonic() + 8.0
+    st = collect_status()
+    while time.monotonic() < deadline:
+        st = collect_status()
+        if st["connected"] or st["auth_url"]:
+            break
+        time.sleep(0.5)
+
+    print(json.dumps(st, indent=2))
+    return 0
+
+
+def cmd_disconnect(stop_daemon: bool) -> int:
+    ts_bin = shutil.which("tailscale")
+    if ts_bin and is_service_active("tailscaled.service"):
+        subprocess.run([ts_bin, "down"], check=False, capture_output=True, timeout=10)
+    if stop_daemon:
+        subprocess.run(["systemctl", "stop", "tailscaled.service"], check=False)
+        subprocess.run(["systemctl", "disable", "tailscaled.service"], check=False)
+    print(json.dumps(collect_status(), indent=2))
+    return 0
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser(description="Manage optional native Tailscale connectivity on nrmaOS")
+    sub = parser.add_subparsers(dest="subcmd", required=True)
+
+    p_st = sub.add_parser("status", help="Query Tailscale daemon, device, IP, and login state")
+    p_st.add_argument("--json", action="store_true")
+
+    p_conn = sub.add_parser("connect", help="Start tailscaled and initiate or resume Tailscale connection")
+    p_conn.add_argument("--hostname", default=None, help="Optional DNS-label device hostname")
+
+    p_disc = sub.add_parser("disconnect", help="Disconnect from Tailnet")
+    p_disc.add_argument("--stop-daemon", action="store_true", help="Also stop and disable tailscaled.service")
+
+    args = parser.parse_args()
+
+    if args.subcmd == "status":
+        st = collect_status()
+        if args.json:
+            print(json.dumps(st, indent=2))
+        else:
+            print(f"Installed        : {st['installed']}")
+            print(f"Daemon Active    : {st['daemon_active']} (enabled at boot: {st['daemon_enabled']})")
+            print(f"State            : {st['backend_state']} (connected: {st['connected']})")
+            print(f"Device Name      : {st['device_name']}")
+            print(f"Tailnet IPv4     : {st['tailnet_ip'] or '(disconnected)'}")
+            print(f"MagicDNS Name    : {st['magic_dns_name'] or '(unavailable)'}")
+            if st["auth_url"]:
+                print(f"Login URL        : {st['auth_url']}")
+        return 0
+
+    require_root(sys.argv[1:])
+
+    if args.subcmd == "connect":
+        return cmd_connect(args.hostname)
+    if args.subcmd == "disconnect":
+        return cmd_disconnect(args.stop_daemon)
+    return 1
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

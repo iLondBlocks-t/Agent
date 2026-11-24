@@ -70,15 +70,19 @@ class QemuGuestClient:
         user: str | None = None,
         env: dict | None = None,
         timeout: float = 30.0,
+        stdin: str | None = None,
     ) -> dict:
+        req: dict = {
+            "action": "exec",
+            "cmd": cmd,
+            "user": user,
+            "env": env or {},
+            "timeout": timeout,
+        }
+        if stdin is not None:
+            req["stdin"] = stdin
         return self.request(
-            {
-                "action": "exec",
-                "cmd": cmd,
-                "user": user,
-                "env": env or {},
-                "timeout": timeout,
-            },
+            req,
             timeout=timeout + 10.0,
         )
 
@@ -395,23 +399,55 @@ def main() -> int:
             assert sc_res["ok"], f"Shortcut creation failed: {sc_res}"
             report["checks"]["nrma_runtime_exe_workflow"] = True
 
-        # 8. Verify Remote Desktop (xrdp + xorgxrdp + PAM root block + external FreeRDP connection)
+        # 8. Verify Native Tailscale Package (installed, disconnected by default, zero baked state)
+        tsctl_check = guest.exec_cmd(["which", "nrma-tailscalectl"])
+        assert tsctl_check["ok"], "nrma-tailscalectl missing from live image"
+        ts_st = json.loads(guest.exec_cmd(["nrma-tailscalectl", "status", "--json"])["stdout"])
+        assert ts_st["installed"] is True, f"Official tailscale package must be installed: {ts_st}"
+        assert ts_st["daemon_active"] is False and ts_st["daemon_enabled"] is False and ts_st["connected"] is False, (
+            f"Tailscale must remain disconnected and disabled by default: {ts_st}"
+        )
+        baked_ts = guest.exec_cmd(["sh", "-c", "ls -A /var/lib/tailscale 2>/dev/null || true"])
+        assert baked_ts["stdout"].strip() == "", (
+            f"No Tailscale state or keys may be baked into ISO (/var/lib/tailscale={baked_ts['stdout']!r})"
+        )
+        report["checks"]["native_tailscale_installed_and_disconnected_by_default"] = True
+
+        # 9. Verify Remote Desktop (xrdp + xorgxrdp + Tailscale UFW mode + PAM root block + external FreeRDP connection)
         rdpctl_check = guest.exec_cmd(["which", "nrma-rdpctl"])
         if args.require_rdp or rdpctl_check["ok"]:
             assert rdpctl_check["ok"], "nrma-rdpctl missing"
             st0 = json.loads(guest.exec_cmd(["nrma-rdpctl", "status", "--json"])["stdout"])
             assert st0["enabled"] is False and st0["active"] is False, f"RDP must start disabled: {st0}"
 
+            # Verify generic subnet validation still rejects raw 100.64.0.0/10 on untrusted interfaces
+            bad_cgnat = guest.exec_cmd(["nrma-rdpctl", "enable", "--firewall-mode", "lan", "--subnet", "100.64.0.0/10"])
+            assert not bad_cgnat["ok"], "Generic LAN mode must reject bare 100.64.0.0/10 without tailscale0 scoping"
+
+            # Verify dedicated Tailscale firewall mode scopes UFW strictly to tailscale0
+            ts_fw_en = guest.exec_cmd(["nrma-rdpctl", "enable", "--port", "3389", "--firewall-mode", "tailscale"])
+            assert ts_fw_en["ok"], f"nrma-rdpctl tailscale firewall mode failed: {ts_fw_en}"
+            ufw_ts = guest.exec_cmd(["ufw", "status", "verbose"])["stdout"]
+            assert "tailscale0" in ufw_ts and "100.64.0.0/10" in ufw_ts and "10.0.0.0/8" not in ufw_ts, (
+                f"Tailscale-only UFW mode did not restrict rules exclusively to tailscale0:\n{ufw_ts}"
+            )
+            report["checks"]["rdp_tailscale_interface_firewall_mode"] = True
+
             # Configure regular user access and temporary test password via stdin (never saved in plaintext)
             pw_setup = guest.exec_cmd(
-                ["sh", "-c", "printf 'nrma:NrmaTest#2026!\\n' | chpasswd && nrma-rdpctl grant-user nrma"]
+                ["/usr/bin/nrma-rdpctl", "set-user-password", "nrma"],
+                stdin="NrmaTest#2026!\n",
             )
-            assert pw_setup["ok"], f"Failed granting RDP user access: {pw_setup}"
+            assert pw_setup["ok"], f"Failed setting RDP user password via stdin: {pw_setup}"
+            grant_setup = guest.exec_cmd(["/usr/bin/nrma-rdpctl", "grant-user", "nrma"])
+            assert grant_setup["ok"], f"Failed granting RDP user access: {grant_setup}"
 
             # Also set a temporary root password SOLELY inside this disposable VM to prove PAM/xrdp blocks root RDP login!
             guest.exec_cmd(["sh", "-c", "printf 'root:RootBlockTest#2026!\\n' | chpasswd"])
 
-            en_res = guest.exec_cmd(["nrma-rdpctl", "enable", "--port", "3389", "--subnet", "10.0.0.0/8"])
+            en_res = guest.exec_cmd(
+                ["nrma-rdpctl", "enable", "--port", "3389", "--firewall-mode", "lan", "--subnet", "10.0.2.2/32"]
+            )
             assert en_res["ok"], f"nrma-rdpctl enable failed: {en_res}"
 
             st1 = json.loads(guest.exec_cmd(["nrma-rdpctl", "status", "--json"])["stdout"])

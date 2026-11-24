@@ -27,6 +27,22 @@ ApplicationWindow {
         function onInitialPageChanged() {
             win.currentPage = settings.initialPage
         }
+        function onRdpChanged() {
+            var m = settings.rdpStatus.firewall_mode || "lan"
+            if (m === "tailscale") rdpFwModeBox.currentIndex = 1
+            else if (m === "lan+tailscale") rdpFwModeBox.currentIndex = 2
+            else rdpFwModeBox.currentIndex = 0
+        }
+    }
+
+    // Automatically poll Tailscale status while awaiting interactive browser login
+    Timer {
+        interval: 2500
+        repeat: true
+        running: win.currentPage === "tailscale"
+                 && Boolean(settings.tailscaleStatus.daemon_active)
+                 && !Boolean(settings.tailscaleStatus.connected)
+        onTriggered: settings.refreshTailscaleStatus()
     }
 
     RowLayout {
@@ -66,6 +82,7 @@ ApplicationWindow {
                         { id: "wallpaper", label: "Wallpaper Manager", glyph: "▣" },
                         { id: "display", label: "Display & Windows", glyph: "◧" },
                         { id: "remote-desktop", label: "Remote Desktop", glyph: "⇄" },
+                        { id: "tailscale", label: "Tailscale VPN", glyph: "⬡" },
                         { id: "runtime", label: "nrma Runtime (EXE)", glyph: "⊞" },
                         { id: "about", label: "About nrmaOS", glyph: "ⓘ" }
                     ]
@@ -105,6 +122,7 @@ ApplicationWindow {
                             onClicked: {
                                 win.currentPage = modelData.id
                                 if (modelData.id === "remote-desktop") settings.refreshRdpStatus()
+                                else if (modelData.id === "tailscale") settings.refreshTailscaleStatus()
                                 else if (modelData.id === "runtime") settings.refreshRuntimeStatus()
                                 else if (modelData.id === "display") settings.refreshDisplayModes()
                             }
@@ -362,7 +380,7 @@ ApplicationWindow {
                         }
                     }
 
-                    // Server Control + Port + Subnet + Resolution Card
+                    // Server Control + Port + Firewall Mode + Subnet + Resolution Card
                     Rectangle {
                         Layout.fillWidth: true; radius: 14; color: win.cardBg
                         implicitHeight: rdpMainCol.implicitHeight + 28
@@ -387,7 +405,8 @@ ApplicationWindow {
                                         !settings.rdpStatus.active,
                                         parseInt(rdpPortField.text) || 3389,
                                         rdpSubnetsField.text,
-                                        rdpResBox.currentText
+                                        rdpResBox.currentText,
+                                        rdpFwModeBox.selectedMode
                                     )
                                 }
                             }
@@ -411,10 +430,25 @@ ApplicationWindow {
                                     }
                                 }
 
-                                Text { text: "Trusted Firewall Subnets:"; color: win.textMain; font.pixelSize: 13 }
+                                Text { text: "Firewall Access Scope:"; color: win.textMain; font.pixelSize: 13 }
+                                ComboBox {
+                                    id: rdpFwModeBox
+                                    Layout.fillWidth: true
+                                    readonly property var modeIds: ["lan", "tailscale", "lan+tailscale"]
+                                    readonly property string selectedMode: modeIds[Math.max(0, currentIndex)] || "lan"
+                                    model: [
+                                        "Local Network Only (RFC1918 LAN)",
+                                        "Tailscale Only (tailscale0 interface)",
+                                        "Local Network + Tailscale (tailscale0)"
+                                    ]
+                                    onActivated: settings.setRdpFirewallMode(modeIds[currentIndex] || "lan")
+                                }
+
+                                Text { text: "Trusted LAN Subnets:"; color: win.textMain; font.pixelSize: 13 }
                                 TextField {
                                     id: rdpSubnetsField
                                     Layout.fillWidth: true
+                                    enabled: rdpFwModeBox.selectedMode !== "tailscale"
                                     text: (settings.rdpStatus.allowed_subnets || ["10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16"]).join(", ")
                                 }
 
@@ -441,7 +475,8 @@ ApplicationWindow {
                                 color: settings.rdpStatus.root_login_blocked ? "#34d399" : "#f87171"; font.pixelSize: 12
                             }
                             Text {
-                                text: (settings.rdpStatus.firewall_active ? "✓" : "○") + " UFW Firewall active (incoming restricted to trusted local subnets)"
+                                text: (settings.rdpStatus.firewall_active ? "✓" : "○") + " UFW Firewall active — mode: " + (settings.rdpStatus.firewall_mode || "lan")
+                                      + (settings.rdpStatus.firewall_mode === "tailscale" ? " (restricted to tailscale0)" : "")
                                 color: settings.rdpStatus.firewall_active ? "#34d399" : win.textMuted; font.pixelSize: 12
                             }
                             Text {
@@ -517,7 +552,7 @@ ApplicationWindow {
                             }
                             Text {
                                 Layout.topMargin: 6
-                                text: "How to Connect:\n• Windows: Open Remote Desktop Connection (mstsc.exe) → Computer: " + (settings.rdpStatus.connection_endpoint || "<ip>:3389") + "\n• Android: Install Microsoft Remote Desktop (Windows App) or aFreeRDP → Add PC: " + (settings.rdpStatus.connection_endpoint || "<ip>:3389") + "\n• Outside LAN: Never expose port 3389 directly on a router. Connect over WireGuard, Tailscale, or an SSH tunnel."
+                                text: "How to Connect:\n• Windows: Open Remote Desktop Connection (mstsc.exe) → Computer: " + (settings.rdpStatus.connection_endpoint || "<ip>:3389") + "\n• Android: Install Windows App (Microsoft Remote Desktop) or aFreeRDP → Add PC: " + (settings.rdpStatus.connection_endpoint || "<ip>:3389") + "\n• Outside LAN: Never expose port 3389 on a public router. Open the Tailscale VPN tab to connect over your private Tailnet."
                                 color: win.textMuted; font.pixelSize: 12; wrapMode: Text.WordWrap; Layout.fillWidth: true
                             }
                         }
@@ -525,7 +560,190 @@ ApplicationWindow {
                 }
 
                 // ============================================================
-                // PAGE 5: nrma RUNTIME (OPTIONAL WINE & EXE COMPATIBILITY)
+                // PAGE 5: OPTIONAL NATIVE TAILSCALE VPN
+                // ============================================================
+                ColumnLayout {
+                    visible: win.currentPage === "tailscale"
+                    Layout.fillWidth: true
+                    Layout.leftMargin: 24
+                    Layout.rightMargin: 24
+                    spacing: 14
+
+                    RowLayout {
+                        Layout.fillWidth: true
+                        ColumnLayout {
+                            spacing: 2
+                            Text { text: "Tailscale Mesh VPN"; color: win.textMain; font.pixelSize: 22; font.bold: true }
+                            Text {
+                                text: "Optional private WireGuard mesh networking for remote nrmaOS access without public port forwarding."
+                                color: win.textMuted; font.pixelSize: 12
+                            }
+                        }
+                        Item { Layout.fillWidth: true }
+                        Rectangle {
+                            height: 28
+                            width: tsStatusLbl.implicitWidth + 20
+                            radius: 14
+                            color: settings.tailscaleStatus.connected
+                                ? "#1e7e5c"
+                                : (settings.tailscaleStatus.needs_login ? "#b45309" : "#374151")
+                            Text {
+                                id: tsStatusLbl
+                                anchors.centerIn: parent
+                                text: settings.tailscaleStatus.connected
+                                    ? "● Connected"
+                                    : (settings.tailscaleStatus.needs_login
+                                       ? "◐ Login Required"
+                                       : "○ Disconnected (Default)")
+                                color: "#ffffff"
+                                font.pixelSize: 12
+                                font.bold: true
+                            }
+                        }
+                    }
+
+                    // Device, Tailnet IP, MagicDNS, and Connect/Disconnect Controls Card
+                    Rectangle {
+                        Layout.fillWidth: true; radius: 14; color: win.cardBg
+                        implicitHeight: tsMainCol.implicitHeight + 28
+                        ColumnLayout {
+                            id: tsMainCol
+                            anchors.fill: parent; anchors.margins: 14; spacing: 10
+
+                            RowLayout {
+                                Layout.fillWidth: true
+                                spacing: 8
+                                Text {
+                                    text: "Service State: " + (settings.tailscaleStatus.backend_state || "Stopped")
+                                    color: win.textMain; font.pixelSize: 14; font.bold: true
+                                }
+                                Item { Layout.fillWidth: true }
+                                Button {
+                                    visible: !Boolean(settings.tailscaleStatus.connected)
+                                    enabled: Boolean(settings.tailscaleStatus.installed)
+                                    text: "Connect to Tailscale"
+                                    onClicked: settings.connectTailscale(tsHostField.text)
+                                }
+                                Button {
+                                    visible: Boolean(settings.tailscaleStatus.connected) || Boolean(settings.tailscaleStatus.daemon_active)
+                                    text: "Disconnect"
+                                    onClicked: settings.disconnectTailscale(true)
+                                }
+                            }
+
+                            GridLayout {
+                                Layout.fillWidth: true
+                                columns: 2
+                                columnSpacing: 12
+                                rowSpacing: 8
+
+                                Text { text: "Device Name:"; color: win.textMain; font.pixelSize: 13 }
+                                TextField {
+                                    id: tsHostField
+                                    Layout.fillWidth: true
+                                    text: settings.tailscaleStatus.device_name || "nrmaos"
+                                    placeholderText: "Optional Tailnet device hostname"
+                                }
+
+                                Text { text: "Tailnet IPv4:"; color: win.textMain; font.pixelSize: 13 }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: settings.tailscaleStatus.tailnet_ip || "Disconnected"
+                                        color: settings.tailscaleStatus.tailnet_ip ? "#34d399" : win.textMuted
+                                        font.pixelSize: 13; font.bold: Boolean(settings.tailscaleStatus.tailnet_ip)
+                                    }
+                                    Button {
+                                        visible: Boolean(settings.tailscaleStatus.tailnet_ip)
+                                        text: "Copy IP"
+                                        onClicked: settings.copyToClipboard(settings.tailscaleStatus.tailnet_ip || "")
+                                    }
+                                }
+
+                                Text { text: "MagicDNS Name:"; color: win.textMain; font.pixelSize: 13 }
+                                RowLayout {
+                                    Layout.fillWidth: true
+                                    Text {
+                                        Layout.fillWidth: true
+                                        text: settings.tailscaleStatus.magic_dns_name || "Unavailable until connected"
+                                        color: settings.tailscaleStatus.magic_dns_name ? "#34d399" : win.textMuted
+                                        font.pixelSize: 13
+                                        elide: Text.ElideRight
+                                    }
+                                    Button {
+                                        visible: Boolean(settings.tailscaleStatus.magic_dns_name)
+                                        text: "Copy DNS"
+                                        onClicked: settings.copyToClipboard(settings.tailscaleStatus.magic_dns_name || "")
+                                    }
+                                }
+                            }
+                        }
+                    }
+
+                    // Interactive Browser Authentication Flow Card
+                    Rectangle {
+                        visible: (settings.tailscaleStatus.auth_url || "") !== "" && !Boolean(settings.tailscaleStatus.connected)
+                        Layout.fillWidth: true; radius: 14; color: win.cardBg
+                        border.width: 2; border.color: win.accent
+                        implicitHeight: tsAuthCol.implicitHeight + 24
+                        ColumnLayout {
+                            id: tsAuthCol
+                            anchors.fill: parent; anchors.margins: 12; spacing: 8
+                            Text { text: "Complete Tailscale Sign-In"; color: win.textMain; font.pixelSize: 14; font.bold: true }
+                            Text {
+                                Layout.fillWidth: true; wrapMode: Text.WordWrap
+                                text: "Open or copy the authentication URL below to approve this nrmaOS machine in your Tailnet:"
+                                color: win.textMuted; font.pixelSize: 12
+                            }
+                            TextField {
+                                Layout.fillWidth: true
+                                readOnly: true
+                                text: settings.tailscaleStatus.auth_url || ""
+                            }
+                            RowLayout {
+                                spacing: 8
+                                Button {
+                                    text: "Open Login URL"
+                                    onClicked: settings.openExternalUrl(settings.tailscaleStatus.auth_url || "")
+                                }
+                                Button {
+                                    text: "Copy Login URL"
+                                    onClicked: settings.copyToClipboard(settings.tailscaleStatus.auth_url || "")
+                                }
+                            }
+                        }
+                    }
+
+                    // Pair with Remote Desktop Card
+                    Rectangle {
+                        Layout.fillWidth: true; radius: 14; color: win.cardBg
+                        implicitHeight: tsRdpPairCol.implicitHeight + 24
+                        ColumnLayout {
+                            id: tsRdpPairCol
+                            anchors.fill: parent; anchors.margins: 12; spacing: 8
+                            Text { text: "Private Remote Desktop over Tailscale"; color: win.textMain; font.pixelSize: 14; font.bold: true }
+                            Text {
+                                Layout.fillWidth: true; wrapMode: Text.WordWrap
+                                text: "Tailscale starts disconnected by default and never stores authentication keys in the nrmaOS image. Once connected, you can restrict nrmaOS Remote Desktop exclusively to the encrypted tailscale0 interface."
+                                color: win.textMuted; font.pixelSize: 12
+                            }
+                            RowLayout {
+                                spacing: 8
+                                Button {
+                                    text: "Restrict RDP Firewall to tailscale0"
+                                    onClicked: {
+                                        settings.setRdpFirewallMode("tailscale")
+                                        win.currentPage = "remote-desktop"
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+
+                // ============================================================
+                // PAGE 6: nrma RUNTIME (OPTIONAL WINE & EXE COMPATIBILITY)
                 // ============================================================
                 ColumnLayout {
                     visible: win.currentPage === "runtime"
@@ -673,7 +891,7 @@ ApplicationWindow {
                 }
 
                 // ============================================================
-                // PAGE 6: ABOUT nrmaOS
+                // PAGE 7: ABOUT nrmaOS
                 // ============================================================
                 ColumnLayout {
                     visible: win.currentPage === "about"
@@ -699,7 +917,7 @@ ApplicationWindow {
                             Text { text: "Foundation: " + (settings.aboutInfo.debianBase || "Debian GNU/Linux stable") + " • Qt " + (settings.aboutInfo.qtVersion || "6"); color: win.textMuted; font.pixelSize: 12 }
                             Text {
                                 Layout.fillWidth: true; wrapMode: Text.WordWrap; Layout.topMargin: 6
-                                text: "nrmaOS original shell, utilities, and documentation are licensed under the MIT License. Underlying Linux kernel, Debian base packages, Xorg, Openbox, Mesa, Qt 6, xrdp, and optional Wine components remain under their respective upstream open-source licenses."
+                                text: "nrmaOS original shell, utilities, and documentation are licensed under the MIT License. Underlying Linux kernel, Debian base packages, Xorg, Openbox, Mesa, Qt 6, xrdp, Tailscale, and optional Wine components remain under their respective upstream open-source licenses."
                                 color: win.textMuted; font.pixelSize: 12
                             }
                         }

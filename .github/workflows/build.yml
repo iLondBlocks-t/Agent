@@ -76,12 +76,16 @@ jobs:
           iso="${NRMAOS_ISO_BASENAME}.iso"
           test -s "$iso"
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            age \
+            unzip \
             xorriso \
             qemu-system-x86 \
             qemu-utils \
             xvfb \
             freerdp3-x11 || \
           sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            age \
+            unzip \
             xorriso \
             qemu-system-x86 \
             qemu-utils \
@@ -107,6 +111,13 @@ jobs:
             --require-runtime \
             --require-rdp \
             --report nrmaos-verification-report.json
+
+      - name: Verify headless QEMU RDP bootstrap, age encryption, session reconnect & cleanup
+        run: |
+          source build/live-build.env
+          python3 scripts/rdp_qemu_session.py selftest \
+            --iso "${NRMAOS_ISO_BASENAME}.iso" \
+            --host-port 13390
 
       - name: Write GitHub Step Summary
         if: always()

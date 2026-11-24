@@ -16,7 +16,12 @@ need_file auto/config
 need_file build/live-build.env
 need_file scripts/stage-chroot.sh
 need_file scripts/build-iso.sh
+need_file scripts/rdp_qemu_session.py
+need_file scripts/decrypt-rdp-credentials.sh
 need_file .github/workflows/build.yml
+need_file .github/workflows/nrmaos-rdp.yml
+need_file docs/tailscale-rdp.md
+need_file remote-desktop/nrma-tailscalectl
 need_file config/package-lists/nrmaos.list.chroot
 need_file config/hooks/live/050-nrmaos-setup.hook.chroot
 need_file config/hooks/live/090-nrmaos-bootloader.hook.binary
@@ -53,7 +58,13 @@ if grep -qxE 'wine|wine64|wine32' "$PACKAGE_LIST"; then
     fail "Wine must remain optional and not preinstalled in the base ISO package list"
 fi
 
-python3 -m py_compile system/nrmaos-qa-agent.py tests/qemu_boot_test.py
+python3 -m py_compile \
+    system/nrmaos-qa-agent.py \
+    remote-desktop/nrma-rdpctl \
+    remote-desktop/nrma-tailscalectl \
+    scripts/rdp_qemu_session.py \
+    tests/qemu_boot_test.py
+sh -n scripts/stage-chroot.sh scripts/build-iso.sh scripts/decrypt-rdp-credentials.sh remote-desktop/setup-rdp.sh remote-desktop/install-into-chroot.sh
 python3 shell/tests/test_shell_contract.py
 
 if [ -f tests/test_system_units.py ]; then

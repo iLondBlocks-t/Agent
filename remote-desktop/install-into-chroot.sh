@@ -1,5 +1,5 @@
 #!/bin/sh
-# Stages nrmaOS Remote Desktop management tools and PolicyKit rules into chroot.
+# Stages nrmaOS Remote Desktop & Tailscale management tools and PolicyKit rules into chroot.
 set -eu
 
 INC="${1:?chroot include path required}"
@@ -12,14 +12,18 @@ mkdir -p \
     "$INC/etc/polkit-1/rules.d"
 
 install -m 0755 "$SCRIPT_DIR/nrma-rdpctl" "$INC/usr/bin/nrma-rdpctl"
+install -m 0755 "$SCRIPT_DIR/nrma-tailscalectl" "$INC/usr/bin/nrma-tailscalectl"
 install -m 0755 "$SCRIPT_DIR/startwm.sh" "$INC/usr/lib/nrmaos/xrdp-startwm.sh"
 install -m 0755 "$SCRIPT_DIR/setup-rdp.sh" "$INC/usr/lib/nrmaos/setup-rdp.sh"
 install -m 0644 "$SCRIPT_DIR/org.nrmaos.rdpctl.policy" "$INC/usr/share/polkit-1/actions/org.nrmaos.rdpctl.policy"
+install -m 0644 "$SCRIPT_DIR/org.nrmaos.tailscalectl.policy" "$INC/usr/share/polkit-1/actions/org.nrmaos.tailscalectl.policy"
 
-# Allow active local sudo-group administrators on live evaluation session to run nrma-rdpctl cleanly via pkexec
+# Allow active local sudo-group administrators on live evaluation session to run nrmaOS controllers cleanly via pkexec
 cat > "$INC/etc/polkit-1/rules.d/50-nrmaos-admin.rules" <<'EOF'
 polkit.addRule(function(action, subject) {
-    if ((action.id === "org.nrmaos.rdpctl" || action.id === "org.nrmaos.runtime") &&
+    if ((action.id === "org.nrmaos.rdpctl" ||
+         action.id === "org.nrmaos.tailscalectl" ||
+         action.id === "org.nrmaos.runtime") &&
         subject.local && subject.active && subject.isInGroup("sudo")) {
         return polkit.Result.YES;
     }

@@ -2,6 +2,7 @@
 """Real QEMU full-system boot, desktop, security, runtime, and RDP integration test for nrmaOS."""
 
 import argparse
+import hashlib
 import json
 import os
 import shutil
@@ -200,8 +201,15 @@ def main() -> int:
     vm = subprocess.Popen(qemu_cmd, stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True)
     guest = QemuGuestClient(qa_sock)
 
+    h = hashlib.sha256()
+    with iso_path.open("rb") as f:
+        while chunk := f.read(4 * 1024 * 1024):
+            h.update(chunk)
+    iso_sha256 = h.hexdigest()
+
     report: dict = {
         "iso_file": iso_path.name,
+        "iso_sha256": iso_sha256,
         "iso_size_bytes": iso_path.stat().st_size,
         "iso_size_mib": round(iso_path.stat().st_size / (1024.0 * 1024.0), 2),
         "qemu_acceleration": "kvm" if use_kvm else "tcg",

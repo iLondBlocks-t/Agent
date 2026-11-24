@@ -111,6 +111,11 @@ void SystemSettings::setAccentColor(const QString &color)
     emit settingsChanged();
 }
 
+QString SystemSettings::wallpaperPath() const
+{
+    return QFileInfo::exists(m_wallpaperPath) ? m_wallpaperPath : QString();
+}
+
 void SystemSettings::setWallpaperPath(const QString &path)
 {
     if (path.isEmpty() || m_wallpaperPath == path) {

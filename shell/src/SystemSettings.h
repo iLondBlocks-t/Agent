@@ -26,7 +26,7 @@ public:
     QString accentColor() const { return m_accentColor; }
     void setAccentColor(const QString &color);
 
-    QString wallpaperPath() const { return m_wallpaperPath; }
+    QString wallpaperPath() const;
     void setWallpaperPath(const QString &path);
 
     bool reducedMotion() const { return m_reducedMotion; }

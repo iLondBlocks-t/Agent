@@ -182,7 +182,8 @@ ApplicationWindow {
             Layout.fillWidth: true
             Layout.fillHeight: true
             clip: true
-            margins: 12
+            topMargin: 10
+            bottomMargin: 10
             spacing: 4
             model: fm.entries
 

@@ -2,6 +2,7 @@
 linux-image-amd64
 live-boot
 live-config
+live-config-systemd
 systemd-sysv
 xserver-xorg-core
 xserver-xorg-input-libinput

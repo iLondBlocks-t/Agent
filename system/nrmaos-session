@@ -1,0 +1,72 @@
+#!/bin/sh
+# /usr/bin/nrmaos-session
+# Launches the nrmaOS X11 desktop session for both local LightDM logins and remote xrdp sessions.
+set -eu
+
+export XDG_CURRENT_DESKTOP="nrmaOS"
+export XDG_SESSION_DESKTOP="nrmaos"
+export XDG_SESSION_TYPE="x11"
+export QT_QPA_PLATFORM="xcb"
+export QT_QUICK_CONTROLS_STYLE="Basic"
+
+RUNTIME_DIR="${XDG_RUNTIME_DIR:-/tmp/nrmaos-runtime-$(id -u)}"
+if [ ! -d "$RUNTIME_DIR" ]; then
+    mkdir -p "$RUNTIME_DIR"
+    chmod 0700 "$RUNTIME_DIR"
+fi
+export XDG_RUNTIME_DIR="$RUNTIME_DIR"
+
+LOG_DIR="${HOME:-/tmp}/.local/state/nrmaos"
+mkdir -p "$LOG_DIR"
+
+# Detect software rendering or remote xrdp session for graceful animation/compositor fallback.
+IS_REMOTE="${XRDP_SESSION:-0}"
+SW_RENDER=0
+if [ "$IS_REMOTE" != "0" ]; then
+    SW_RENDER=1
+elif command -v glxinfo >/dev/null 2>&1; then
+    RENDERER="$(glxinfo -B 2>/dev/null | awk -F': ' '/OpenGL renderer string/{print $2}' || true)"
+    case "$RENDERER" in
+        *llvmpipe*|*softpipe*|*swrast*|"")
+            SW_RENDER=1
+            ;;
+    esac
+fi
+export NRMAOS_SOFTWARE_RENDER="$SW_RENDER"
+if [ "$SW_RENDER" = "1" ]; then
+    export QSG_RENDER_LOOP="basic"
+fi
+
+# Ensure a clean solid backdrop immediately before shell paints wallpaper.
+if command -v xsetroot >/dev/null 2>&1; then
+    xsetroot -solid "#0f141e" || true
+    xsetroot -cursor_name left_ptr || true
+fi
+
+# Ensure user has nrmaOS Openbox configuration that omits heavy titlebars where appropriate.
+OB_CFG_DIR="${HOME:-/tmp}/.config/openbox"
+mkdir -p "$OB_CFG_DIR"
+if [ ! -f "$OB_CFG_DIR/rc.xml" ] && [ -f /etc/xdg/nrmaos/openbox-rc.xml ]; then
+    cp /etc/xdg/nrmaos/openbox-rc.xml "$OB_CFG_DIR/rc.xml"
+fi
+
+# Start D-Bus session bus if none is active yet.
+if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] && command -v dbus-launch >/dev/null 2>&1; then
+    eval "$(dbus-launch --sh-syntax --exit-with-session)"
+fi
+
+# Start lightweight compositor on local hardware-accelerated sessions when installed.
+if [ "$SW_RENDER" = "0" ] && command -v picom >/dev/null 2>&1 && [ -f /etc/xdg/nrmaos/picom.conf ]; then
+    picom --config /etc/xdg/nrmaos/picom.conf --daemon || true
+fi
+
+# Start Openbox window manager in the background and bind session lifetime to nrmaos-shell.
+openbox --config-file "$OB_CFG_DIR/rc.xml" >"$LOG_DIR/openbox.log" 2>&1 &
+WM_PID=$!
+
+cleanup() {
+    kill "$WM_PID" 2>/dev/null || true
+}
+trap cleanup EXIT INT TERM
+
+exec /usr/bin/nrmaos-shell >"$LOG_DIR/nrmaos-shell.log" 2>&1

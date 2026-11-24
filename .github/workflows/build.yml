@@ -1,0 +1,93 @@
+name: Build and Verify nrmaOS ISO
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+      - "arena/**"
+  pull_request:
+    branches:
+      - main
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Run static and unit tests
+        run: ./scripts/test-source.sh
+
+      - name: Build nrmaOS Debian Live ISO
+        run: ./scripts/build-iso.sh
+
+      - name: Verify ISO structure and SHA256 checksums
+        run: |
+          source build/live-build.env
+          iso="${NRMAOS_ISO_BASENAME}.iso"
+          test -s "$iso"
+          sudo apt-get update
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            xorriso \
+            qemu-system-x86 \
+            qemu-utils \
+            xvfb \
+            freerdp3-x11 || \
+          sudo DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
+            xorriso \
+            qemu-system-x86 \
+            qemu-utils \
+            xvfb \
+            freerdp2-x11
+          xorriso -indev "$iso" -report_el_torito plain
+          sha256sum -c "$iso.sha256"
+
+      - name: Enable KVM permissions when available on runner
+        run: |
+          if [ -e /dev/kvm ]; then
+            sudo chmod 0666 /dev/kvm || true
+            ls -l /dev/kvm
+          else
+            echo "/dev/kvm not present; QEMU will fall back to TCG."
+          fi
+
+      - name: Boot ISO in QEMU and run live integration & performance checks
+        run: |
+          source build/live-build.env
+          python3 tests/qemu_boot_test.py \
+            --iso "${NRMAOS_ISO_BASENAME}.iso" \
+            --report nrmaos-verification-report.json
+
+      - name: Write GitHub Step Summary
+        if: always()
+        run: |
+          if [ -f nrmaos-verification-report.json ]; then
+            {
+              echo "## nrmaOS Build & QEMU Verification Report"
+              echo '```json'
+              cat nrmaos-verification-report.json
+              echo '```'
+            } >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+      - name: Upload ISO, SHA256 checksum, and QEMU verification report
+        uses: actions/upload-artifact@v4
+        with:
+          name: nrmaos-amd64-live-iso
+          path: |
+            nrmaos-*.iso
+            nrmaos-*.iso.sha256
+            nrmaos-verification-report.json
+          if-no-files-found: error
+          compression-level: 0
+          retention-days: 14

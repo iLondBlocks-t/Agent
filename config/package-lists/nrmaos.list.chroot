@@ -1,25 +1,53 @@
-# Minimal X11 session and file manager; deliberately no desktop task/metapackage.
+# Core kernel, systemd, and Debian Live boot infrastructure
 linux-image-amd64
 live-boot
 live-config
 live-config-systemd
 systemd-sysv
+sudo
+polkitd
+pkexec
+procps
+iproute2
+iputils-ping
+ca-certificates
+openssl
+ufw
+nftables
+python3
+
+# Xorg display server, input, Mesa acceleration, and software fallback
 xserver-xorg-core
+xserver-xorg-video-fbdev
+xserver-xorg-video-vesa
 xserver-xorg-input-libinput
 xinit
 x11-xserver-utils
+x11-utils
+libgl1-mesa-dri
+libglx-mesa0
+libegl-mesa0
+mesa-utils
+
+# Window manager, compositor, display manager, session utilities, fonts
 openbox
+picom
 lightdm
 lightdm-gtk-greeter
 dbus-x11
 xterm
 pcmanfm
+fonts-dejavu-core
+fonts-noto-core
 
-# Qt 6 GUI platform and runtime QML modules used by the nrmaOS shell.
+# Qt 6 GUI platform and QML runtime modules used by nrmaOS shell and native apps
+libqt6network6
 qml6-module-qtqml
+qml6-module-qtqml-models
 qml6-module-qtqml-workerscript
 qml6-module-qtquick
 qml6-module-qtquick-controls
 qml6-module-qtquick-templates
 qml6-module-qtquick-layouts
 qml6-module-qtquick-window
+qml6-module-qtquick-dialogs

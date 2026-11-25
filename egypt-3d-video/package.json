@@ -1,0 +1,22 @@
+{
+  "name": "egypt-3d-cinematic",
+  "version": "1.0.0",
+  "description": "",
+  "main": "index.js",
+  "scripts": {
+    "render": "bash scripts/render.sh",
+    "still": "npx remotion still"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "@remotion/cli": "^4.0.547",
+    "@sparticuz/chromium": "^158.0.0",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "remotion": "^4.0.547"
+  },
+  "private": true,
+  "type": "module"
+}
